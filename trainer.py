@@ -1,0 +1,385 @@
+import os
+
+import numpy as np
+import torch
+import torch_geometric.datasets
+from ogb.nodeproppred import Evaluator, PygNodePropPredDataset
+from sklearn.metrics import f1_score
+
+from GraphSampling import *
+from LP.LP_Adj import LabelPropagation_Adj
+from Precomputing import (JK_GAMLP, R_GAMLP, SAGN, SGC, SIGN, Ensembling,
+                          SIGN_v2)
+from Precomputing.Ensembling import Ensembling
+
+
+def load_data(dataset):
+    if dataset == "Products":
+        root = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), "..", "dataset"
+        )
+        dataset = PygNodePropPredDataset(name="ogbn-products", root=root)
+        processed_dir = dataset.processed_dir
+        split_idx = dataset.get_idx_split()
+        evaluator = Evaluator(name="ogbn-products")
+        data = dataset[0]
+        split_masks = {}
+        for split in ["train", "valid", "test"]:
+            mask = torch.zeros(data.num_nodes, dtype=torch.bool)
+            mask[split_idx[split]] = True
+            data[f"{split}_mask"] = mask
+            split_masks[f"{split}"] = data[f"{split}_mask"]
+        x = data.x
+        y = data.y = data.y.squeeze()
+
+    elif dataset in ["Reddit", "Flickr", "AmazonProducts", "Yelp"]:
+        path = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'dataset', dataset)
+        dataset_class = getattr(torch_geometric.datasets, dataset)
+        dataset = dataset_class(path)
+        processed_dir = dataset.processed_dir
+        data = dataset[0]
+        evaluator = None
+        split_masks = {}
+        split_masks["train"] = data.train_mask
+        split_masks["valid"] = data.val_mask
+        split_masks["test"] = data.test_mask
+        x = data.x
+        y = data.y
+        E = data.edge_index.shape[1]
+        N = data.train_mask.shape[0]
+        data.edge_idx = torch.arange(0, E)
+        data.node_idx = torch.arange(0, N)
+
+    else:
+        raise Exception(f"the dataset of {dataset} has not been implemented")
+    return data, x, y, split_masks, evaluator, processed_dir
+
+
+def idx2mask(idx, N_nodes):
+    mask = torch.tensor([False] * N_nodes, device=idx.device)
+    mask[idx] = True
+    return mask
+
+
+class trainer(object):
+    def __init__(self, args):
+
+        self.dataset = args.dataset
+        self.device = torch.device(f"cuda:{args.cuda_num}" if args.cuda else "cpu")
+        self.args = args
+        self.args.device = self.device
+
+        self.type_model = args.type_model
+        self.epochs = args.epochs
+        self.eval_steps = args.eval_steps
+
+        # used to indicate multi-label classification.
+        # If it is, using BCE and micro-f1 performance metric
+        self.multi_label = args.multi_label
+        if self.multi_label:
+            self.loss_op = torch.nn.BCEWithLogitsLoss()
+        else:
+            self.loss_op = torch.nn.NLLLoss()
+
+        if self.dataset == "ogbn-arxiv":
+            self.data, self.split_idx = load_ogbn(self.dataset)
+            self.x, self.y = self.data.x, self.data.y
+            self.train_idx = self.split_idx["train"]
+            self.evaluator = Evaluator(name="ogbn-arxiv")
+            train_mask = idx2mask(self.split_idx["train"], args.N_nodes)
+            valid_mask = idx2mask(self.split_idx["valid"], args.N_nodes)
+            test_mask = idx2mask(self.split_idx["test"], args.N_nodes)
+            self.split_masks = {
+                "train": train_mask,
+                "valid": valid_mask,
+                "test": test_mask,
+            }
+
+        else:
+            (
+                self.data,
+                self.x,
+                self.y,
+                self.split_masks,
+                self.evaluator,
+                self.processed_dir,
+            ) = load_data(args.dataset)
+
+        if self.type_model in ["GraphSAGE"]:
+            self.model = GraphSAGE(
+                args, self.data, self.split_masks["train"], self.processed_dir
+            )
+        elif self.type_model in ["FastGCN"]:
+            self.model = FastGCN(
+                args, self.data, self.split_masks["train"], self.processed_dir
+            )
+        elif self.type_model in ["LADIES"]:
+            self.model = LADIES(
+                args, self.data, self.split_masks["train"], self.processed_dir
+            )
+        elif self.type_model == "GraphSAINT":
+            self.model = GraphSAINT(
+                args, self.data, self.split_masks["train"], self.processed_dir
+            )
+        elif self.type_model == "DST-GCN":
+            self.model = DSTGCN(
+                args, self.data, self.split_masks["train"], self.processed_dir
+            )
+        elif self.type_model == "ClusterGCN":
+            self.model = ClusterGCN(
+                args, self.data, self.split_masks["train"], self.processed_dir
+            )
+        elif self.type_model == "LP_Adj":  # -wz-ini
+            self.model = LabelPropagation_Adj(
+                args, self.data, self.split_masks["train"]
+            )
+        elif self.type_model == "SIGN_MLP":
+            self.model = SIGN_MLP(args, self.data, self.split_masks["train"])
+        elif self.type_model == "EdgeSampling":
+            self.model = EdgeSampling(
+                args, self.data, self.split_masks["train"], self.processed_dir
+            )
+        elif self.type_model == "GradientSampling":
+            self.model = GradientSampling(
+                args, self.data, self.split_masks["train"], self.processed_dir
+            )
+        elif self.type_model == "SIGN":
+            if self.dataset == "Products":
+                self.model = SIGN_v2(args, self.data, self.split_masks["train"])
+            else:
+                self.model = SIGN(args, self.data, self.split_masks["train"])
+        elif self.type_model == "SGC":
+            self.model = SGC(args, self.data, self.split_masks["train"])
+        elif self.type_model == "SAGN":
+            self.model = SAGN(args, self.data, self.split_masks["train"])
+        elif self.type_model == "GAMLP":
+            if args.GAMLP_type == "R":
+                self.model = R_GAMLP(
+                    args,
+                    self.data,
+                    self.split_masks["train"],
+                    pre_process=True,
+                    alpha=args.GAMLP_alpha,
+                )
+            elif args.GAMLP_type == "JK":
+                self.model = JK_GAMLP(
+                    args,
+                    self.data,
+                    self.split_masks["train"],
+                    pre_process=True,
+                    alpha=args.GAMLP_alpha,
+                )
+            else:
+                raise ValueError(f"Unknown GAMLP type: {args.GAMLP_type}")
+        elif self.type_model == "Ensembling":
+            self.model = Ensembling(args, self.data, self.split_masks["train"])
+        else:
+            raise NotImplementedError
+        self.model.to(self.device)
+
+        if len(list(self.model.parameters())) != 0:
+            self.optimizer = torch.optim.Adam(
+                self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay
+            )
+        else:
+            self.optimizer = None
+
+    def mem_speed_bench(self):
+        input_dict = self.get_input_dict(0)
+        self.model.mem_speed_bench(input_dict)
+
+    def train_and_test(self, seed):
+        results = []
+
+        for epoch in range(self.epochs):
+
+            train_loss, train_acc = self.train_net(epoch)  # -wz-run
+            print(
+                f"Seed: {seed:02d}, "
+                f"Epoch: {epoch:02d}, "
+                f"Loss: {train_loss:.4f}, "
+                f"Approx Train Acc: {train_acc:.4f}"
+            )
+
+            if epoch % self.eval_steps == 0 and epoch != 0:
+                out, result = self.test_net()
+                results.append(result)
+                train_acc, valid_acc, test_acc = result
+                print(
+                    f"Epoch: {epoch:02d}, "
+                    f"Loss: {train_loss:.4f}, "
+                    f"Train: {100 * train_acc:.2f}%, "
+                    f"Valid: {100 * valid_acc:.2f}% "
+                    f"Test: {100 * test_acc:.2f}%"
+                )
+
+        results = 100 * np.array(results)
+        best_idx = np.argmax(results[:, 1])
+        best_train = results[best_idx, 0]
+        best_valid = results[best_idx, 1]
+        best_test = results[best_idx, 2]
+        print(
+            f"Best train: {best_train:.2f}%, "
+            f"Best valid: {best_valid:.2f}% "
+            f"Best test: {best_test:.2f}%"
+        )
+
+        return best_train, best_valid, best_test
+
+    def train_net(self, epoch):
+        self.model.train()
+        input_dict = self.get_input_dict(epoch)
+        train_loss, train_acc = self.model.train_net(input_dict)
+        return train_loss, train_acc
+
+    def get_input_dict(self, epoch):
+        if self.type_model in [
+            "GraphSAGE",
+            "GraphSAINT",
+            "ClusterGCN",
+            "FastGCN",
+            "LADIES",
+        ]:
+            input_dict = {
+                "x": self.x,
+                "y": self.y,
+                "optimizer": self.optimizer,
+                "loss_op": self.loss_op,
+                "device": self.device,
+            }
+        elif self.type_model in ["DST-GCN", "_GraphSAINT", "GradientSampling"]:
+            input_dict = {
+                "x": self.x,
+                "y": self.y,
+                "optimizer": self.optimizer,
+                "loss_op": self.loss_op,
+                "device": self.device,
+                "epoch": epoch,
+                "split_masks": self.split_masks,
+            }
+        elif self.type_model in ["LP_Adj"]:
+            input_dict = {
+                "split_masks": self.split_masks,
+                "data": self.data,
+                "x": self.x,
+                "y": self.y,
+                "optimizer": self.optimizer,
+                "loss_op": self.loss_op,
+                "device": self.device,
+            }
+        elif self.type_model in [
+            "SIGN",
+            "SGC",
+            "SAGN",
+            "GAMLP",
+            "GPRGNN",
+            "PPRGo",
+            "Ensembling",
+        ]:
+            input_dict = {
+                "split_masks": self.split_masks,
+                "data": self.data,
+                "x": self.x,
+                "y": self.y,
+                "optimizer": self.optimizer,
+                "loss_op": self.loss_op,
+                "device": self.device,
+            }
+        else:
+            Exception(f"the model of {self.type_model} has not been implemented")
+        return input_dict
+
+    @torch.no_grad()
+    def test_net(self):
+        self.model.eval()
+        input_dict = {"x": self.x, "y": self.y, "device": self.device}
+        out = self.model.inference(input_dict)
+
+        if self.evaluator is not None:
+            y_true = self.y.unsqueeze(-1)
+            y_pred = out.argmax(dim=-1, keepdim=True)
+
+            train_acc = self.evaluator.eval(
+                {
+                    "y_true": y_true[self.split_masks["train"]],
+                    "y_pred": y_pred[self.split_masks["train"]],
+                }
+            )["acc"]
+            valid_acc = self.evaluator.eval(
+                {
+                    "y_true": y_true[self.split_masks["valid"]],
+                    "y_pred": y_pred[self.split_masks["valid"]],
+                }
+            )["acc"]
+            test_acc = self.evaluator.eval(
+                {
+                    "y_true": y_true[self.split_masks["test"]],
+                    "y_pred": y_pred[self.split_masks["test"]],
+                }
+            )["acc"]
+        else:
+
+            if not self.multi_label:
+                pred = out.argmax(dim=-1).to("cpu")
+                y_true = self.y
+                correct = pred.eq(y_true)
+                train_acc = (
+                    correct[self.split_masks["train"]].sum().item()
+                    / self.split_masks["train"].sum().item()
+                )
+                valid_acc = (
+                    correct[self.split_masks["valid"]].sum().item()
+                    / self.split_masks["valid"].sum().item()
+                )
+                test_acc = (
+                    correct[self.split_masks["test"]].sum().item()
+                    / self.split_masks["test"].sum().item()
+                )
+
+            else:
+                pred = (out > 0).float().numpy()
+                y_true = self.y.numpy()
+                # calculating F1 scores
+                train_acc = (
+                    f1_score(
+                        y_true[self.split_masks["train"]],
+                        pred[self.split_masks["train"]],
+                        average="micro",
+                    )
+                    if pred[self.split_masks["train"]].sum() > 0
+                    else 0
+                )
+
+                valid_acc = (
+                    f1_score(
+                        y_true[self.split_masks["valid"]],
+                        pred[self.split_masks["valid"]],
+                        average="micro",
+                    )
+                    if pred[self.split_masks["valid"]].sum() > 0
+                    else 0
+                )
+
+                test_acc = (
+                    f1_score(
+                        y_true[self.split_masks["test"]],
+                        pred[self.split_masks["test"]],
+                        average="micro",
+                    )
+                    if pred[self.split_masks["test"]].sum() > 0
+                    else 0
+                )
+
+        return out, (train_acc, valid_acc, test_acc)
+
+
+def load_ogbn(dataset="ogbn-arxiv"):
+    import torch_geometric.transforms as T
+    from torch_geometric.utils import to_undirected
+
+    dataset = PygNodePropPredDataset(name=dataset)
+    split_idx = dataset.get_idx_split()
+    data = dataset[0]
+    data.edge_index = to_undirected(data.edge_index, data.num_nodes)
+    data.y = data.y.squeeze(1)
+    return data, split_idx

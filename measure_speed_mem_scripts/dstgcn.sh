@@ -1,0 +1,1 @@
+python main.py --type_model DST-GCN --dataset Reddit --batch_size 20 --num_layers 2 --dropout 0.7 --dim_hidden 128 --cuda 1 --debug_mem_speed
