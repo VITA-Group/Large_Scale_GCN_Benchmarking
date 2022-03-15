@@ -1,16 +1,15 @@
 import gc
 import json
-
 import os
 import random
 from datetime import datetime
+
 import numpy as np
 import torch
 
 from options.base_options import BaseOptions
 from trainer import trainer
 from utils import print_args
-
 
 def set_seed(args):
     torch.backends.cudnn.deterministic = True

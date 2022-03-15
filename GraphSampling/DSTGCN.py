@@ -1,18 +1,20 @@
-import torch
-from torch_geometric.data import GraphSAINTRandomWalkSampler as RWSampler
-import torch.nn.functional as F
-from ._GraphSampling import _GraphSampling
-import math
-from typing import Tuple
-from torch_geometric.typing import OptPairTensor
-from torch import Tensor
-from torch_sparse import SparseTensor, matmul
-from torch_geometric.nn import SAGEConv
-from torch_scatter import scatter
-from utils import get_memory_usage, compute_tensor_bytes, MB, GB
 import json
+import math
 import time
+from typing import Tuple
 
+import torch
+import torch.nn.functional as F
+from torch import Tensor
+from torch_geometric.data import GraphSAINTRandomWalkSampler as RWSampler
+from torch_geometric.nn import SAGEConv
+from torch_geometric.typing import OptPairTensor
+from torch_scatter import scatter
+from torch_sparse import SparseTensor, matmul
+
+from utils import GB, MB, compute_tensor_bytes, get_memory_usage
+
+from ._GraphSampling import _GraphSampling
 
 
 class GSConv(SAGEConv):
@@ -406,19 +408,28 @@ class DSTGCN(_GraphSampling):
         return total_loss, total_correct / train_size
 
     def mem_speed_bench(self, input_dict):
-        device = input_dict['device']
-        optimizer = input_dict['optimizer']
-        loss_op = input_dict['loss_op']
-        epoch = input_dict['epoch']
+        device = input_dict["device"]
+        optimizer = input_dict["optimizer"]
+        loss_op = input_dict["loss_op"]
+        epoch = input_dict["epoch"]
         model_opt_usage = get_memory_usage(0, False)
-        usage_dict = {'model_opt_usage': model_opt_usage, 'data_mem': [], 'act_mem': [], 'peak_mem': [], 'duration': []}
-        print('model + optimizer only, mem: %.2f MB' % (usage_dict['model_opt_usage'] / MB))
-        x, y = input_dict['x'], input_dict['y']
+        usage_dict = {
+            "model_opt_usage": model_opt_usage,
+            "data_mem": [],
+            "act_mem": [],
+            "peak_mem": [],
+            "duration": [],
+        }
+        print(
+            "model + optimizer only, mem: %.2f MB"
+            % (usage_dict["model_opt_usage"] / MB)
+        )
+        x, y = input_dict["x"], input_dict["y"]
         x, y = x.to(device), y.to(device)
         init_mem = get_memory_usage(0, False)
-        data_mem = init_mem - usage_dict['model_opt_usage']
-        usage_dict['data_mem'].append(data_mem)
-        print('data mem: %.2f MB' % (data_mem / MB))
+        data_mem = init_mem - usage_dict["model_opt_usage"]
+        usage_dict["data_mem"].append(data_mem)
+        print("data mem: %.2f MB" % (data_mem / MB))
         torch.cuda.empty_cache()
         epoch_start_time = time.time()
         torch.cuda.synchronize()
@@ -438,8 +449,8 @@ class DSTGCN(_GraphSampling):
                 loss = loss_op(out[batch_train_idx], batch_y[batch_train_idx])
             before_backward = get_memory_usage(0, False)
             act_mem = before_backward - init_mem - compute_tensor_bytes([loss, out])
-            usage_dict['act_mem'].append(act_mem)
-            print('act mem: %.2f MB' % (act_mem / MB))
+            usage_dict["act_mem"].append(act_mem)
+            print("act mem: %.2f MB" % (act_mem / MB))
             t = epoch * self.num_steps + i
             if t % self.dst_update_interval == 0 and t <= self.dst_T_end:
                 self.sampled_adj.storage._value.retain_grad()
@@ -449,7 +460,9 @@ class DSTGCN(_GraphSampling):
             # update
             self.logging()
             if t % self.dst_update_interval == 0 and t <= self.dst_T_end:
-                rate = (self.dst_update_rate / 2) * (1 + math.cos(t * math.pi / self.dst_T_end))
+                rate = (self.dst_update_rate / 2) * (
+                    1 + math.cos(t * math.pi / self.dst_T_end)
+                )
                 self.update_rate = rate
                 # self._update_with_node_grad(rate)
                 self._random_update(rate)
@@ -457,16 +470,16 @@ class DSTGCN(_GraphSampling):
             torch.cuda.synchronize()
             iter_end_time = time.time()
             duration = iter_end_time - iter_start_time
-            print('duration: %.4f sec' % duration)
-            usage_dict['duration'].append(duration)
+            print("duration: %.4f sec" % duration)
+            usage_dict["duration"].append(duration)
             peak_usage = torch.cuda.max_memory_allocated(0)
-            usage_dict['peak_mem'].append(peak_usage)
-            print(f'peak mem usage: {peak_usage / MB}')
+            usage_dict["peak_mem"].append(peak_usage)
+            print(f"peak mem usage: {peak_usage / MB}")
             torch.cuda.empty_cache()
             del out, loss, batch_x, batch_y
-        with open('./dstgcn_mem_speed_log.json', 'w') as fp:
+        with open("./dstgcn_mem_speed_log.json", "w") as fp:
             info_dict = {**self.saved_args, **usage_dict}
-            del info_dict['device']
+            del info_dict["device"]
             # import pdb; pdb.set_trace()
             json.dump(info_dict, fp)
         exit()

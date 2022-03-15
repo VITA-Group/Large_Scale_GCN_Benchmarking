@@ -1,8 +1,6 @@
 import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from torch_geometric.transforms import SIGN
-from torch_sparse import SparseTensor
 
 from Precomputing.base import PrecomputingBase
 

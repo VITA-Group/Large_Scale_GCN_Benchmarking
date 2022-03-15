@@ -23,8 +23,9 @@ class _GraphSampling(torch.nn.Module):
         if not os.path.exists(self.save_dir):
             os.makedirs(self.save_dir)
         self.debug_mem_speed = args.debug_mem_speed
-        self.test_loader = NeighborSampler(data.edge_index, sizes=[-1],
-                                           batch_size=1024, shuffle=False)
+        self.test_loader = NeighborSampler(
+            data.edge_index, sizes=[-1], batch_size=1024, shuffle=False
+        )
 
     def inference(self, input_dict):
         device = input_dict["device"]
