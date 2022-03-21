@@ -15,12 +15,6 @@ from torch_sparse import SparseTensor, matmul
 import GraphSampling.cpp_extension.sample as sample
 from GraphSampling._GraphSampling import _GraphSampling
 
-"""
-NOTE: gradient sampling:
-1. compute gradients w.r.t. nodes with torch.norm(out.grads, p=2, dim=1)
-2. compute gradients w.r.t. nodes with self.train_loader.adj.storage.value().grads // the grads of edges
-"""
-
 
 class GSConv(SAGEConv):
     def __init__(self, *args, **kwargs):  # yapf: disable

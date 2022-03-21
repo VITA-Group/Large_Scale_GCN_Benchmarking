@@ -13,12 +13,18 @@ from Precomputing import (JK_GAMLP, R_GAMLP, SAGN, SGC, SIGN, Ensembling,
 from Precomputing.Ensembling import Ensembling
 
 
+# TODO: run './Precomputing/Ensembling.py' and './GraphSampling/DSTGCN.py' on ogbn-papers100M
+# TODO: check the performance of GraphSAINT on AmazonProducts
+
+# TODO: test the throughput and memory usage of ensembling and dstgcn
+# NOTE: abandon './GraphSampling/GradientSampling.py', which is not feasible for super large-scale data
+
 def load_data(dataset):
-    if dataset == "Products":
+    if dataset in ["ogbn-products", "ogbn-papers100M"]:
         root = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "..", "dataset"
         )
-        dataset = PygNodePropPredDataset(name="ogbn-products", root=root)
+        dataset = PygNodePropPredDataset(name=dataset, root=root)
         processed_dir = dataset.processed_dir
         split_idx = dataset.get_idx_split()
         evaluator = Evaluator(name="ogbn-products")

@@ -145,7 +145,6 @@ class FastGCN(_GraphSampling):
             optimizer.zero_grad()
             adjs = [adj.to(device) for adj in adjs]
             out = self(x[input_idx], adjs)
-            # TODO: what is the exact number of nodes in the current mini-batch?
             if isinstance(loss_op, torch.nn.NLLLoss):
                 out = F.log_softmax(out, dim=-1)
             print(f'num_sampled_nodes: {out.shape[0]}')

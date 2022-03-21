@@ -149,7 +149,6 @@ class LADIES(_GraphSampling):
             iter_start_time = time.time()
             torch.cuda.synchronize()
             adjs = [adj.to(device) for adj in adjs]
-            # TODO: what is the exact number of nodes in the current mini-batch?
             optimizer.zero_grad()
             out = self(x[input_idx], adjs)
             if isinstance(loss_op, torch.nn.NLLLoss):

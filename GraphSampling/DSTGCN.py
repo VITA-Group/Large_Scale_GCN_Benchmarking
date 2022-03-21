@@ -16,6 +16,8 @@ from utils import GB, MB, compute_tensor_bytes, get_memory_usage
 
 from ._GraphSampling import _GraphSampling
 
+# TODO: review and pune the code of dstgcn
+
 
 class GSConv(SAGEConv):
     def __init__(self, *args, **kwargs):  # yapf: disable

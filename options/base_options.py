@@ -12,7 +12,7 @@ class BaseOptions():
         parser.add_argument('--debug_mem_speed', action='store_true', help='whether to get the memory usage and throughput')
         parser.add_argument("--dataset", type=str, default="Products", required=False,
             help="The input dataset.", 
-            choices=['Flickr', 'Reddit', 'Products', 'Yelp', 'AmazonProducts', 'Paper-100m', 'ogbn-arxiv'])
+            choices=['Flickr', 'Reddit', 'OGB-Products', 'OGB-100M', 'Yelp', 'AmazonProducts', 'ogbn-arxiv'])
 
         parser.add_argument('--type_model', type=str, default="DST-GCN",
                             choices=['GraphSAGE', 'FastGCN', 'LADIES', 'ClusterGCN', 'GraphSAINT', 'DST-GCN', 'MLP', 'SGC', 'SIGN', 'SIGN_MLP',
