@@ -12,22 +12,22 @@ from Precomputing import (JK_GAMLP, R_GAMLP, SAGN, SGC, SIGN, Ensembling,
                           SIGN_v2)
 from Precomputing.Ensembling import Ensembling
 
-
 # TODO: run './Precomputing/Ensembling.py' and './GraphSampling/DSTGCN.py' on ogbn-papers100M
 # TODO: check the performance of GraphSAINT on AmazonProducts
 
 # TODO: test the throughput and memory usage of ensembling and dstgcn
 # NOTE: abandon './GraphSampling/GradientSampling.py', which is not feasible for super large-scale data
 
-def load_data(dataset):
-    if dataset in ["ogbn-products", "ogbn-papers100M"]:
+
+def load_data(dataset_name):
+    if dataset_name in ["ogbn-products", "ogbn-papers100M"]:
         root = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), "..", "dataset"
+            os.path.dirname(os.path.realpath(__file__)), "..", "dataset", dataset_name
         )
-        dataset = PygNodePropPredDataset(name=dataset, root=root)
+        dataset = PygNodePropPredDataset(name=dataset_name, root=root)
         processed_dir = dataset.processed_dir
         split_idx = dataset.get_idx_split()
-        evaluator = Evaluator(name="ogbn-products")
+        evaluator = Evaluator(name=dataset_name)
         data = dataset[0]
         split_masks = {}
         for split in ["train", "valid", "test"]:
@@ -38,9 +38,11 @@ def load_data(dataset):
         x = data.x
         y = data.y = data.y.squeeze()
 
-    elif dataset in ["Reddit", "Flickr", "AmazonProducts", "Yelp"]:
-        path = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'dataset', dataset)
-        dataset_class = getattr(torch_geometric.datasets, dataset)
+    elif dataset_name in ["Reddit", "Flickr", "AmazonProducts", "Yelp"]:
+        path = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), "..", "dataset", dataset_name
+        )
+        dataset_class = getattr(torch_geometric.datasets, dataset_name)
         dataset = dataset_class(path)
         processed_dir = dataset.processed_dir
         data = dataset[0]

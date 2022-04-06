@@ -137,7 +137,7 @@ class FastGCN(_GraphSampling):
         epoch_start_time = time.time()
         torch.cuda.synchronize()
         for i, (input_idx, output_idx, adjs) in enumerate(self.train_loader):
-            ifsymotion-s) i >= self.num_steps:
+            if i >= self.num_steps:
                 break
             # `adjs` holds a list of `(edge_index, e_id, size)` tuples.
             iter_start_time = time.time()

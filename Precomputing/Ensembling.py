@@ -38,7 +38,7 @@ class MLP(torch.nn.Module):
             out = F.log_softmax(out, dim=-1)
         elif isinstance(self.loss_op, torch.nn.BCEWithLogitsLoss):
             y = y.float()
-        loss = self.loss_op(out, y)
+        loss = self.loss_op(out, y.type(torch.LongTensor))
         loss.backward()
         self.optimizer.step()
         return loss.item(), out

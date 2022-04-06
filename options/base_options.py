@@ -12,7 +12,7 @@ class BaseOptions():
         parser.add_argument('--debug_mem_speed', action='store_true', help='whether to get the memory usage and throughput')
         parser.add_argument("--dataset", type=str, default="Products", required=False,
             help="The input dataset.", 
-            choices=['Flickr', 'Reddit', 'OGB-Products', 'OGB-100M', 'Yelp', 'AmazonProducts', 'ogbn-arxiv'])
+            choices=['Flickr', 'Reddit', 'ogbn-products', 'ogbn-papers100M', 'Yelp', 'AmazonProducts', 'ogbn-arxiv'])
 
         parser.add_argument('--type_model', type=str, default="DST-GCN",
                             choices=['GraphSAGE', 'FastGCN', 'LADIES', 'ClusterGCN', 'GraphSAINT', 'DST-GCN', 'MLP', 'SGC', 'SIGN', 'SIGN_MLP',
@@ -100,7 +100,7 @@ class BaseOptions():
             args.num_classes = 41
             args.num_feats = 602
 
-        elif args.dataset == 'Products':
+        elif args.dataset == 'ogbn-products':
             args.multi_label = False
             args.num_classes = 47
             args.num_feats = 100
@@ -116,6 +116,11 @@ class BaseOptions():
             args.num_classes = 40
             args.N_nodes = 169343
             # args.dim_hidden = 256
+
+        elif args.dataset == 'ogbn-papers100M':
+            args.multi_label = False
+            args.num_classes = 172
+            args.num_feats = 128
 
         return args
 
