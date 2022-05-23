@@ -1,4 +1,8 @@
+import gc
+import json
 import os
+import random
+from datetime import datetime
 
 import numpy as np
 import seaborn as sns
@@ -6,10 +10,16 @@ import torch
 import torch_geometric.datasets
 from ogb.nodeproppred import Evaluator, PygNodePropPredDataset
 from sklearn.metrics import f1_score
+from torch_sparse import SparseTensor
 
 from GraphSampling import *
 from LP.LP_Adj import LabelPropagation_Adj
-from Precomputing import *
+from options.base_options import BaseOptions
+from Precomputing import (JK_GAMLP, R_GAMLP, SAGN, SGC, SIGN, Ensembling,
+                          SIGN_v2)
+from Precomputing.Ensembling import Ensembling
+from trainer import trainer
+from utils import print_args
 
 
 def load_data(dataset_name):
@@ -73,6 +83,8 @@ class trainer(object):
         self.type_model = args.type_model
         self.epochs = args.epochs
         self.eval_steps = args.eval_steps
+        self.type_run = args.type_run
+        self.filter_rate = args.filter_rate
 
         # used to indicate multi-label classification.
         # If it is, using BCE and micro-f1 performance metric
@@ -105,129 +117,25 @@ class trainer(object):
                 self.evaluator,
                 self.processed_dir,
             ) = load_data(args.dataset)
+            if self.type_run == "filtered":
+                self.data = filtrate_data_with_grads(
+                    args.dataset, rate=self.filter_rate
+                )
+                self.x, self.y = self.data.x, self.data.y
+                self.split_masks = {
+                    "train": self.data.train_mask,
+                    "valid": self.data.val_mask,
+                    "test": self.data.val_mask,
+                }
 
-        if self.type_model in ["GraphSAGE"]:
-            self.model = GraphSAGE(
-                args, self.data, self.split_masks["train"], self.processed_dir
-            )
-        elif self.type_model in ["FastGCN"]:
-            self.model = FastGCN(
-                args, self.data, self.split_masks["train"], self.processed_dir
-            )
-        elif self.type_model in ["LADIES"]:
-            self.model = LADIES(
-                args, self.data, self.split_masks["train"], self.processed_dir
-            )
-        elif self.type_model == "GraphSAINT":
-            self.model = GraphSAINT(
-                args, self.data, self.split_masks["train"], self.processed_dir
-            )
-        elif self.type_model == "DST-GCN":
-            self.model = DSTGCN(
-                args, self.data, self.split_masks["train"], self.processed_dir
-            )
-        elif self.type_model == "ClusterGCN":
-            self.model = ClusterGCN(
-                args, self.data, self.split_masks["train"], self.processed_dir
-            )
-        elif self.type_model == "LP_Adj":  # -wz-ini
-            self.model = LabelPropagation_Adj(
-                args, self.data, self.split_masks["train"]
-            )
-        elif self.type_model == "SIGN_MLP":
-            self.model = SIGN_MLP(
-                args, self.data, self.split_masks["train"], self.processed_dir
-            )
-        elif self.type_model == "EdgeSampling":
-            self.model = EdgeSampling(
-                args, self.data, self.split_masks["train"], self.processed_dir
-            )
-        elif self.type_model == "GradientSampling":
+        if self.type_model == "GradientSampling":
             self.model = GradientSampling(
                 args, self.data, self.split_masks["train"], self.processed_dir
             )
         elif self.type_model == "SIGN":
-            if self.dataset == "Products":
-                self.model = SIGN_v2(
-                    args, self.data, self.split_masks["train"], self.processed_dir
-                )
-            else:
-                self.model = SIGN(
-                    args, self.data, self.split_masks["train"], self.processed_dir
-                )
-        elif self.type_model == "SGC":
-            self.model = SGC(
+            self.model = SIGN(
                 args, self.data, self.split_masks["train"], self.processed_dir
             )
-        elif self.type_model == "SAGN":
-            self.model = SAGN(
-                args, self.data, self.split_masks["train"], self.processed_dir
-            )
-        elif self.type_model == "SAdaGCN":
-            self.model = SAdaGCN(
-                args,
-                self.data,
-                self.split_masks["train"],
-                self.processed_dir,
-                self.evaluator,
-            )
-        elif self.type_model == "AdaGCN":
-            self.model = AdaGCN(
-                args,
-                self.data,
-                self.split_masks["train"],
-                self.processed_dir,
-                self.evaluator,
-            )
-        elif self.type_model == "AdaGCN_CandS":
-            self.model = AdaGCN_CandS(
-                args,
-                self.data,
-                self.split_masks["train"],
-                self.processed_dir,
-                self.evaluator,
-            )
-        elif self.type_model == "AdaGCN_SLE":
-            self.model = AdaGCN_SLE(
-                args,
-                self.data,
-                self.split_masks["train"],
-                self.processed_dir,
-                self.evaluator,
-            )
-        elif self.type_model == "GBGCN":
-            self.model = GBGCN(
-                args,
-                self.data,
-                self.split_masks["train"],
-                self.processed_dir,
-                self.evaluator,
-            )
-        elif self.type_model == "GAMLP":
-            if args.GAMLP_type == "R":
-                self.model = R_GAMLP(
-                    args,
-                    self.data,
-                    self.split_masks["train"],
-                    pre_process=True,
-                    alpha=args.GAMLP_alpha,
-                )
-            elif args.GAMLP_type == "JK":
-                self.model = JK_GAMLP(
-                    args,
-                    self.data,
-                    self.split_masks["train"],
-                    pre_process=True,
-                    alpha=args.GAMLP_alpha,
-                )
-            else:
-                raise ValueError(f"Unknown GAMLP type: {args.GAMLP_type}")
-        elif self.type_model == "Bagging":
-            self.model = Bagging(
-                args, self.data, self.split_masks["train"], self.processed_dir
-            )
-        else:
-            raise NotImplementedError
         self.model.to(self.device)
 
         if len(list(self.model.parameters())) != 0:
@@ -241,16 +149,24 @@ class trainer(object):
         input_dict = self.get_input_dict(0)
         self.model.mem_speed_bench(input_dict)
 
-    def train_ensembling(self, seed):
-        # assert isinstance(self.model, (SAdaGCN, AdaGCN, GBGCN))
-        input_dict = self.get_input_dict(0)
-        acc = self.model.train_and_test(input_dict)
-        return acc
+    def train_net_w_grad_sampling(self, epoch):
+        self.model.train()
+        input_dict = self.get_input_dict(epoch)
+        if self.type_model == 'GradientSampling':
+            train_loss, train_acc, grads = self.model.train_net(input_dict)
+        else:
+            train_loss, train_acc = self.model.train_net(input_dict)
+            grads = 0
+        return train_loss, train_acc, grads
 
-    def train_and_test(self, seed):
+    def train_and_test_w_grad_sampling(self, seed):
         results = []
+        grads = torch.tensor([0.0] * self.data.num_nodes)
         for epoch in range(self.epochs):
-            train_loss, train_acc = self.train_net(epoch)  # -wz-run
+            train_loss, train_acc, tem_grads = self.train_net_w_grad_sampling(
+                epoch
+            )  # -wz-run
+            grads += tem_grads
             print(
                 f"Seed: {seed:02d}, "
                 f"Epoch: {epoch:02d}, "
@@ -270,6 +186,9 @@ class trainer(object):
                     f"Test: {100 * test_acc:.2f}%"
                 )
 
+        # plot = sns.histplot(grads)
+        # fig = plot.get_figure()
+        # fig.savefig(f"./figs/{self.dataset}_grads.png")
         results = 100 * np.array(results)
         best_idx = np.argmax(results[:, 1])
         best_train = results[best_idx, 0]
@@ -281,74 +200,18 @@ class trainer(object):
             f"Best test: {best_test:.2f}%"
         )
 
-        return best_train, best_valid, best_test
-
-    def train_net(self, epoch):
-        self.model.train()
-        input_dict = self.get_input_dict(epoch)
-        train_loss, train_acc = self.model.train_net(input_dict)
-        return train_loss, train_acc
+        return best_train, best_valid, best_test, grads
 
     def get_input_dict(self, epoch):
-        if self.type_model in [
-            "GraphSAGE",
-            "GraphSAINT",
-            "ClusterGCN",
-            "FastGCN",
-            "LADIES",
-        ]:
-            input_dict = {
-                "x": self.x,
-                "y": self.y,
-                "optimizer": self.optimizer,
-                "loss_op": self.loss_op,
-                "device": self.device,
-            }
-        elif self.type_model in ["DST-GCN", "_GraphSAINT", "GradientSampling"]:
-            input_dict = {
-                "x": self.x,
-                "y": self.y,
-                "optimizer": self.optimizer,
-                "loss_op": self.loss_op,
-                "device": self.device,
-                "epoch": epoch,
-                "split_masks": self.split_masks,
-            }
-        elif self.type_model in ["LP_Adj"]:
-            input_dict = {
-                "split_masks": self.split_masks,
-                "data": self.data,
-                "x": self.x,
-                "y": self.y,
-                "optimizer": self.optimizer,
-                "loss_op": self.loss_op,
-                "device": self.device,
-            }
-        elif self.type_model in [
-            "SIGN",
-            "SGC",
-            "SAGN",
-            "GAMLP",
-            "GPRGNN",
-            "PPRGo",
-            "Bagging",
-            "SAdaGCN",
-            "AdaGCN",
-            "AdaGCN_CandS",
-            "AdaGCN_SLE",
-            "GBGCN",
-        ]:
-            input_dict = {
-                "split_masks": self.split_masks,
-                "data": self.data,
-                "x": self.x,
-                "y": self.y,
-                "optimizer": self.optimizer,
-                "loss_op": self.loss_op,
-                "device": self.device,
-            }
-        else:
-            Exception(f"the model of {self.type_model} has not been implemented")
+        input_dict = {
+            "x": self.x,
+            "y": self.y,
+            "optimizer": self.optimizer,
+            "loss_op": self.loss_op,
+            "device": self.device,
+            "epoch": epoch,
+            "split_masks": self.split_masks,
+        }
         return input_dict
 
     @torch.no_grad()
@@ -445,3 +308,155 @@ def load_ogbn(dataset="ogbn-arxiv"):
     data.edge_index = to_undirected(data.edge_index, data.num_nodes)
     data.y = data.y.squeeze(1)
     return data, split_idx
+
+
+def set_seed(args):
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    if args.cuda and not torch.cuda.is_available():  # cuda is not available
+        args.cuda = False
+    if args.cuda:
+        torch.cuda.manual_seed(args.random_seed)
+        torch.cuda.manual_seed_all(args.random_seed)
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(args.cuda_num)
+    torch.manual_seed(args.random_seed)
+    np.random.seed(args.random_seed)
+    random.seed(args.random_seed)
+
+
+def main(args):  # complete or filtered
+    list_test_acc = []
+    list_valid_acc = []
+    list_train_loss = []
+
+    filedir = f"./logs/{args.dataset}"
+    if not os.path.exists(filedir):
+        os.makedirs(filedir)
+    if not args.exp_name:
+        filename = f"{args.type_model}.json"
+    else:
+        filename = f"{args.exp_name}.json"
+    path_json = os.path.join(filedir, filename)
+
+    try:
+        resume_seed = 0
+        if os.path.exists(path_json):
+            if args.resume:
+                with open(path_json, "r") as f:
+                    saved = json.load(f)
+                    resume_seed = saved["seed"] + 1
+                    list_test_acc = saved["test_acc"]
+                    list_valid_acc = saved["val_acc"]
+                    list_train_loss = saved["train_loss"]
+            else:
+                t = os.path.getmtime(path_json)
+                tstr = datetime.fromtimestamp(t).strftime("%Y_%m_%d_%H_%M_%S")
+                os.rename(
+                    path_json, os.path.join(filedir, filename + "_" + tstr + ".json")
+                )
+        if resume_seed >= args.N_exp:
+            print("Training already finished!")
+            return
+    except:
+        pass
+
+    print_args(args)
+
+    if args.debug_mem_speed:
+        trnr = trainer(args)
+        trnr.mem_speed_bench()
+
+    for seed in range(resume_seed, args.N_exp):
+        print(f"seed (which_run) = <{seed}>")
+
+        args.random_seed = seed
+        set_seed(args)
+        # torch.cuda.empty_cache()
+        trnr = trainer(args)
+        print(
+            f"---- run with {args.filter_rate} {args.type_run} dataset {args.dataset} ----"
+        )
+        train_loss, valid_acc, test_acc, grads = trnr.train_and_test_w_grad_sampling(
+            seed
+        )
+        list_test_acc.append(test_acc)
+        list_valid_acc.append(valid_acc)
+        list_train_loss.append(train_loss)
+
+        if not os.path.exists("grads"):
+            os.mkdir("./grads/")
+        if trnr.type_run == "complete":
+            torch.save(grads, f"./grads/{args.dataset}.pt")
+
+        # del trnr
+        # torch.cuda.empty_cache()
+        # gc.collect()
+
+        ## record training data
+        print(
+            "mean and std of test acc: ", np.mean(list_test_acc), np.std(list_test_acc)
+        )
+
+        try:
+            to_save = dict(
+                seed=seed,
+                test_acc=list_test_acc,
+                val_acc=list_valid_acc,
+                train_loss=list_train_loss,
+                mean_test_acc=np.mean(list_test_acc),
+                std_test_acc=np.std(list_test_acc),
+            )
+            with open(path_json, "w") as f:
+                json.dump(to_save, f)
+        except:
+            pass
+    print(
+        "final mean and std of test acc: ",
+        f"{np.mean(list_test_acc):.2f} $\\pm$ {np.std(list_test_acc):.2f}",
+    )
+
+
+def filtrate_data_with_grads(dataset, rate):
+    grads = torch.load(f"grads/{dataset}.pt")
+    data, x, y, split_masks, _, _ = load_data(dataset)
+    # 1. grads[train_mask] 2. topk 3. topk(grads) k=len(train_masks)
+    indicator = -torch.abs(grads)
+    _, idx = torch.topk(indicator, k=int(rate * data.num_nodes))
+    # only remove those in training set
+    mask = data.train_mask[idx]
+    idx = idx[mask]
+    mask = torch.ones((data.num_nodes), dtype=torch.bool)
+    mask[idx] = False
+    node_idx = torch.arange(0, data.num_nodes)[mask]
+    print(f"---- reduced training nodes: {float(len(idx))/data.train_mask.sum()} ----")
+
+    def __collate__(data, node_idx):
+        adj = SparseTensor(
+            row=data.edge_index[0],
+            col=data.edge_index[1],
+            value=torch.arange(data.num_edges, device=data.edge_index.device),
+            sparse_sizes=(data.num_nodes, data.num_nodes),
+        )
+        N, E = data.num_nodes, data.num_edges
+        # filtering
+        adj, _ = adj.saint_subgraph(node_idx)
+        data.num_nodes = node_idx.size(0)
+        row, col, edge_idx = adj.coo()
+        data.edge_index = torch.stack([row, col], dim=0)
+        for key, item in data:
+            if key in ["edge_index", "num_nodes"]:
+                continue
+            if isinstance(item, torch.Tensor) and item.size(0) == N:
+                data[key] = item[node_idx]
+            elif isinstance(item, torch.Tensor) and item.size(0) == E:
+                data[key] = item[edge_idx]
+            else:
+                data[key] = item
+        return data
+
+    return __collate__(data, node_idx)
+
+
+if __name__ == "__main__":
+    args = BaseOptions().initialize()
+    main(args)

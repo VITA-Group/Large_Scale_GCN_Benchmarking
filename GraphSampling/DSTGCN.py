@@ -268,7 +268,7 @@ class DSTGCN(_GraphSampling):
         node_grad = scatter(grad, row, reduce="mean")
         num_nodes = len(self.node_idx)
         k = int(rate * num_nodes)
-        val, idx = torch.topk(-node_grad, k=k)
+        val, idx = torch.topk(torch.abs(node_grad), k=k)
         # preserve the remain node_idx as preserved_node_idx
         mask = torch.ones((num_nodes), dtype=torch.bool)
         mask[idx] = False

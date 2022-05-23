@@ -4,12 +4,13 @@ import sys
 
 hparams = dict(
     lr=[0.01, 0.001, 0.0001],
-    weight_decay=[0, 1e-4, 2e-4, 4e-4],
+    # weight_decay=[0, 1e-4, 1e-3, 1e-2],
+    weight_decay=[0, 1e-5, 5e-5, 1e-4],
     dropout=[0.1, 0.2, 0.5, 0.7],
-    epochs=[20, 30, 40, 50],
+    epochs=[30, 50, 70],
     dim_hidden=[128, 256, 512],
-    num_layers=[2, 4, 6],
-    batch_size=[1000, 2000, 5000],
+    num_layers=[2, 4, 8],
+    # batch_size=[1000, 2000, 5000],
 )
 
 gpu = int(sys.argv[1])
@@ -29,8 +30,8 @@ def_config = dict(
     dropout=0.2,
     epochs=50,
     dim_hidden=128,
-    num_layers=2,
-    batch_size=1000,
+    num_layers=4,
+    batch_size=5000,
     N_exp=3,
     num_steps=num_steps,
 )
@@ -51,7 +52,7 @@ keys = [
     "epochs",
     "dim_hidden",
     "num_layers",
-    "batch_size",
+    # "batch_size",
 ]
 for k in keys:
     best_idx, best_acc = -1, -1

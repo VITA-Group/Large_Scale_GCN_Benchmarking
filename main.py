@@ -1,4 +1,3 @@
-import gc
 import json
 import os
 import random
@@ -75,7 +74,16 @@ def main(args):
         set_seed(args)
         # torch.cuda.empty_cache()
         trnr = trainer(args)
-        train_loss, valid_acc, test_acc = trnr.train_and_test(seed)
+        if args.type_model in [
+            "SAdaGCN",
+            "AdaGCN",
+            "GBGCN",
+            "AdaGCN_CandS",
+            "AdaGCN_SLE",
+        ]:
+            train_loss, valid_acc, test_acc = trnr.train_ensembling(seed)
+        else:
+            train_loss, valid_acc, test_acc = trnr.train_and_test(seed)
         list_test_acc.append(test_acc)
         list_valid_acc.append(valid_acc)
         list_train_loss.append(train_loss)

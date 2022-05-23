@@ -36,17 +36,18 @@ class MLP(torch.nn.Module):
         out = self.forward(x)
         if isinstance(self.loss_op, torch.nn.NLLLoss):
             out = F.log_softmax(out, dim=-1)
+            y = y.long()
         elif isinstance(self.loss_op, torch.nn.BCEWithLogitsLoss):
             y = y.float()
-        loss = self.loss_op(out, y.type(torch.LongTensor))
+        loss = self.loss_op(out, y)
         loss.backward()
         self.optimizer.step()
         return loss.item(), out
 
 
-class Ensembling(PrecomputingBase):
-    def __init__(self, args, data, train_idx):
-        super(Ensembling, self).__init__(args, data, train_idx)
+class Bagging(PrecomputingBase):
+    def __init__(self, args, data, train_idx, processed_dir):
+        super(Bagging, self).__init__(args, data, train_idx, processed_dir)
 
         self.mlps = []
         for _ in range(self.num_layers + 1):
@@ -122,7 +123,11 @@ class Ensembling(PrecomputingBase):
             y_pred = self([x[perm].to(device) for x in self.xs])
             out = 0
             for out_i in y_pred:
-                out += F.softmax(out_i, dim=-1)
+                out_logp = F.log_softmax(out_i, dim=1)
+                h = (self.num_classes - 1) * (
+                        out_logp - torch.mean(out_logp, dim=1).view(-1, 1)
+                    )
+                out += h
             y_pred = out
             y_preds.append(y_pred.cpu())
         y_preds = torch.cat(y_preds, dim=0)

@@ -9,8 +9,8 @@ from torch_sparse import SparseTensor
 from Precomputing.base import PrecomputingBase
 
 class SGC(PrecomputingBase):
-    def __init__(self, args, data, train_idx):
-        super(SGC, self).__init__(args, data, train_idx)
+    def __init__(self, args, data, train_idx, processed_dir):
+        super(SGC, self).__init__(args, data, train_idx, processed_dir)
 
         self.lin = torch.nn.Linear(self.num_feats, self.num_classes)
 
