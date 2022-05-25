@@ -94,7 +94,9 @@ def main(args):
 
         ## record training data
         print(
-            "mean and std of test acc: ", np.mean(list_test_acc), np.std(list_test_acc)
+            "mean and std of test acc: {:.4f} {:.4f} ".format(
+                np.mean(list_test_acc) * 100, np.std(list_test_acc) * 100
+            )
         )
 
         try:

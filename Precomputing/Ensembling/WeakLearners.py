@@ -104,9 +104,9 @@ class MLP_SLE(torch.nn.Module):
         )
         self.loss_op = torch.nn.NLLLoss()
 
-    def forward(self, x, y):
+    def forward(self, x, y, use_label_mlp):
         out = self.base_mlp(x)
-        if self.use_label_mlp:
+        if use_label_mlp:
             out += self.label_mlp(y).mean(1)
         return out
 
@@ -118,7 +118,7 @@ class MLP_SLE(torch.nn.Module):
             torch.load(f"./.cache/{self.type_model}_{self.dataset}_label_mlp.pt")
         )
 
-    def train_net(self, train_loader, loss_op, sample_weights, device):
+    def train_net(self, train_loader, loss_op, sample_weights, device, use_label_mlp):
         self.train()
         total_correct, total_loss = 0, 0.0
         y_true, y_preds = [], []
@@ -127,7 +127,7 @@ class MLP_SLE(torch.nn.Module):
             y = y.to(device)
             y_emb = y_emb.to(device)
             self.optimizer.zero_grad()
-            out = self(x, y_emb)
+            out = self(x, y_emb, use_label_mlp)
             if isinstance(loss_op, torch.nn.NLLLoss):
                 out = F.log_softmax(out, dim=-1)
             elif isinstance(loss_op, torch.nn.BCEWithLogitsLoss):
@@ -148,12 +148,12 @@ class MLP_SLE(torch.nn.Module):
         return float(total_loss), train_acc
 
     @torch.no_grad()
-    def inference(self, x, y_emb, device):
+    def inference(self, x, y_emb, device, use_label_mlp):
         self.eval()
         loader = DataLoader(range(x.size(0)), batch_size=100000)
         outs = []
         for perm in loader:
-            out = self(x[perm].to(device), y_emb[perm].to(device))
+            out = self(x[perm].to(device), y_emb[perm].to(device), use_label_mlp)
             outs.append(out.cpu())
         return torch.cat(outs, dim=0)
 

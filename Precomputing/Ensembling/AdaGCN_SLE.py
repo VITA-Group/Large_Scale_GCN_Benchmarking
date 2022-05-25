@@ -20,6 +20,7 @@ class AdaGCN_SLE(PrecomputingBase):
         self.sample_weights = sample_weights / sample_weights.sum()
         self.evaluator = evaluator
         self.SLE_threshold = args.SLE_threshold
+        self.use_label_mlp = args.use_label_mlp
 
         row, col = data.edge_index
         adj_t = SparseTensor(
@@ -34,41 +35,46 @@ class AdaGCN_SLE(PrecomputingBase):
     def forward(self, x):
         pass
 
-    # def propagate(self, K, data):
-    #     assert data.edge_index is not None
-    #     row, col = data.edge_index
-    #     adj_t = SparseTensor(
-    #         row=col, col=row, sparse_sizes=(data.num_nodes, data.num_nodes)
-    #     )
+    def propagate(self, K, data):
+        assert data.edge_index is not None
+        row, col = data.edge_index
+        adj_t = SparseTensor(
+            row=col, col=row, sparse_sizes=(data.num_nodes, data.num_nodes)
+        )
 
-    #     deg = adj_t.sum(dim=1).to(torch.float)
-    #     deg_inv_sqrt = deg.pow(-0.5)
-    #     deg_inv_sqrt[deg_inv_sqrt == float("inf")] = 0
-    #     adj_t = deg_inv_sqrt.view(-1, 1) * adj_t * deg_inv_sqrt.view(1, -1)
+        deg = adj_t.sum(dim=1).to(torch.float)
+        deg_inv_sqrt = deg.pow(-0.5)
+        deg_inv_sqrt[deg_inv_sqrt == float("inf")] = 0
+        adj_t = deg_inv_sqrt.view(-1, 1) * adj_t * deg_inv_sqrt.view(1, -1)
 
-    #     assert data.x is not None
-    #     xs = [data.x]
-    #     data.y_emb = F.one_hot(data.y.view(-1), num_classes=self.num_classes)
-    #     y_embs = [data.y_emb]
-    #     for i in range(1, K + 1):
-    #         xs += [adj_t @ xs[-1]]
-    #         data[f"x{i}"] = xs[-1]
-    #         y_embs += [adj_t @ y_embs[-1]]
-    #         data[f"y_embs{i}"] = y_embs[-1]
-    #     return data
+        assert data.x is not None
+        xs = [data.x]
+        data.y_emb = torch.zeros(data.y.size(0), self.num_classes)
+        data.y_emb[data.train_mask] = F.one_hot(
+            data.y[data.train_mask], num_classes=self.num_classes
+        ).to(torch.float)
+        # data.y_emb = F.one_hot(data.y.view(-1), num_classes=self.num_classes)
+        y_embs = [data.y_emb]
+        for i in range(1, K + 1):
+            xs += [adj_t @ xs[-1]]
+            data[f"x{i}"] = xs[-1]
+            y_embs += [adj_t @ y_embs[-1]]
+            data[f"y_embs{i}"] = y_embs[-1]
+        return data
 
-    # def precompute(self, data, processed_dir):
-    #     print("precomputing features, may take a while.")
-    #     t1 = time.time()
-    #     data = self.propagate(self.num_layers, data)
-    #     self.xs = [data.x] + [data[f"x{i}"] for i in range(1, self.num_layers + 1)]
-    #     self.y_embs = [data.y_emb] + [
-    #         data[f"y_embs{i}"] for i in range(1, self.num_layers + 1)
-    #     ]
-    #     t2 = time.time()
-    #     print("precomputing finished using %.4f s." % (t2 - t1))
-    def propagate(self, x):
-        return self.adj_t @ x
+    def precompute(self, data, processed_dir):
+        print("precomputing features, may take a while.")
+        t1 = time.time()
+        data = self.propagate(self.num_layers, data)
+        self.xs = [data.x] + [data[f"x{i}"] for i in range(1, self.num_layers + 1)]
+        self.y_embs = [data.y_emb] + [
+            data[f"y_embs{i}"] for i in range(1, self.num_layers + 1)
+        ]
+        t2 = time.time()
+        print("precomputing finished using %.4f s." % (t2 - t1))
+
+    # def propagate(self, x):
+    #     return self.adj_t @ x
 
     def to(self, device):
         self.sample_weights = self.sample_weights.to(device)
@@ -83,10 +89,10 @@ class AdaGCN_SLE(PrecomputingBase):
         )
         self.to(device)
         results = torch.zeros(y.size(0), self.num_classes)
-        y_emb = torch.zeros(y.size(0), self.num_classes)
-        y_emb[split_masks["train"]] = F.one_hot(
-            y[split_masks["train"]], num_classes=self.num_classes
-        ).to(torch.float)
+        # y_emb = torch.zeros(y.size(0), self.num_classes)
+        # y_emb[split_masks["train"]] = F.one_hot(
+        #     y[split_masks["train"]], num_classes=self.num_classes
+        # ).to(torch.float)
 
         # for self training
         pseudo_labels = torch.zeros_like(y)
@@ -102,6 +108,7 @@ class AdaGCN_SLE(PrecomputingBase):
             # NOTE: here the num_layers should be the stages in original SAGN
             print(f"\n------ training weak learner with hop {i} ------")
             x = self.xs[i]
+            y_emb = self.y_embs[i]
             self.train_weak_learner(
                 i,
                 x,
@@ -117,27 +124,28 @@ class AdaGCN_SLE(PrecomputingBase):
             )
 
             # make prediction
-            out = self.model.inference(x, y_emb, device)
-            # # self training: add hard labels
-            # val, pred = torch.max(F.softmax(out, dim=1).to("cpu"), dim=1)
-            # SLE_mask = val >= self.SLE_threshold
-            # SLE_pred = pred[SLE_mask]
-            # # SLE_pred U y
-            # pseudo_split_masks["train"] = pseudo_split_masks["train"].logical_or(
-            #     SLE_mask
-            # )
-            # pseudo_labels[SLE_mask] = SLE_pred
-            # pseudo_labels[split_masks["train"]] = y[split_masks["train"]]
-            # # update y_emb
-            # y_emb[pseudo_split_masks["train"]] = F.one_hot(
-            #     pseudo_labels[pseudo_split_masks["train"]], num_classes=self.num_classes
-            # ).to(torch.float)
+            use_label_mlp = False if i == 0 else self.use_label_mlp
+            out = self.model.inference(x, y_emb, device, use_label_mlp)
+            # self training: add hard labels
+            val, pred = torch.max(F.softmax(out, dim=1).to("cpu"), dim=1)
+            SLE_mask = val >= self.SLE_threshold
+            SLE_pred = pred[SLE_mask]
+            # SLE_pred U y
+            pseudo_split_masks["train"] = pseudo_split_masks["train"].logical_or(
+                SLE_mask
+            )
+            pseudo_labels[SLE_mask] = SLE_pred
+            pseudo_labels[split_masks["train"]] = y[split_masks["train"]]
+            # update y_emb
+            y_emb[pseudo_split_masks["train"]] = F.one_hot(
+                pseudo_labels[pseudo_split_masks["train"]], num_classes=self.num_classes
+            ).to(torch.float)
             print(
                 "------ pseudo labels updated, rate: {:.4f} ------".format(
                     pseudo_split_masks["train"].sum() / len(y)
                 )
             )
-            y_emb = self.propagate(y_emb)
+            # y_emb = self.propagate(y_emb)
 
             # NOTE: adaboosting (SAMME.R)
             out_logp = F.log_softmax(out, dim=1)
@@ -203,12 +211,16 @@ class AdaGCN_SLE(PrecomputingBase):
         )
         best_valid_acc = 0.0
         # TODO: tomorrow finish model.train_net (for MLP_SLE)
+        use_label_mlp = self.use_label_mlp
+        if hop == 0:
+            use_label_mlp = False  # warm up
         for epoch in range(self.epochs):
             _loss, _train_acc = self.model.train_net(
-                train_loader, loss_op, self.sample_weights, device
+                train_loader, loss_op, self.sample_weights, device, use_label_mlp
             )
             if (epoch + 1) % self.interval == 0:
-                out = self.model.inference(x, y_emb, device)
+                use_label_mlp = False if hop == 0 else self.use_label_mlp
+                out = self.model.inference(x, y_emb, device, use_label_mlp)
                 out, acc = self.evaluate(out, origin_labels, split_mask)
                 print(
                     f"Model: {hop:02d}, "
