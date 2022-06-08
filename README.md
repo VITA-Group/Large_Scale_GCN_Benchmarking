@@ -89,6 +89,14 @@ python run_HP.py $cuda_num $type_model $dataset
 ```
 For detailed configuration, please refer to `run_HP.py`.
 
+## Reproduce results of EnGCN
+
+Simply run
+```bash
+# dataset = [Flickr, Reddit, ogbn-products]
+bash scripts/$dataset/EnGCN.sh
+```
+
 ## Some tricks for reducing the memory footprint
 1. When using PyG, as illustrated in the [official post](https://pytorch-geometric.readthedocs.io/en/latest/notes/sparse_tensor.html), it is recommended to use the **transposed sparse matrix** instead of the edge_index, which can significantly reduce both the memory footprint and the computation overhead. PyG provides a function called [ToSparseTensor](https://pytorch-geometric.readthedocs.io/en/latest/modules/transforms.html#torch_geometric.transforms.ToSparseTensor) to convert the edge index into the transposed sparse matrix.
 
