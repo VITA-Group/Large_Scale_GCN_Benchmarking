@@ -1,21 +1,36 @@
+import math
+from typing import Optional
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.transforms import SIGN
-from torch.utils.data import DataLoader
-
-import math
-from typing import Optional
 from torch import Tensor
 
-eps=1e-5
+eps = 1e-5
 
 from Precomputing.base import PrecomputingBase
 
+
 class SAGN(PrecomputingBase):
-    def __init__(self, args, data, train_idx, n_layers=2, num_heads=1, weight_style="attention", alpha=0.5, focal="first",
-                 hop_norm="softmax", input_drop=0.0, attn_drop=0.0, negative_slope=0.2, zero_inits=False, position_emb=False):
-        super(SAGN, self).__init__(args, data, train_idx)
+    def __init__(
+        self,
+        args,
+        data,
+        train_idx,
+        processed_dir,
+        n_layers=2,
+        num_heads=1,
+        weight_style="attention",
+        alpha=0.5,
+        focal="first",
+        hop_norm="softmax",
+        input_drop=0.0,
+        attn_drop=0.0,
+        negative_slope=0.2,
+        zero_inits=False,
+        position_emb=False,
+    ):
+        super(SAGN, self).__init__(args, data, train_idx, processed_dir)
 
         num_hops = self.num_layers + 1
         in_feats = args.num_feats
@@ -37,20 +52,31 @@ class SAGN(PrecomputingBase):
         self.bn = MultiHeadBatchNorm(num_heads, hidden * num_heads)
         self.relu = nn.ReLU()
         self.input_drop = nn.Dropout(input_drop)
-        self.multihop_encoders = nn.ModuleList([GroupMLP(in_feats, hidden, hidden, num_heads, n_layers, dropout) for i in range(num_hops)])
+        self.multihop_encoders = nn.ModuleList(
+            [
+                GroupMLP(in_feats, hidden, hidden, num_heads, n_layers, dropout)
+                for i in range(num_hops)
+            ]
+        )
         self.res_fc = nn.Linear(in_feats, hidden * num_heads, bias=False)
-        
+
         if weight_style == "attention":
-            self.hop_attn_l = nn.Parameter(torch.FloatTensor(size=(1, num_heads, hidden)))
-            self.hop_attn_r = nn.Parameter(torch.FloatTensor(size=(1, num_heads, hidden)))
+            self.hop_attn_l = nn.Parameter(
+                torch.FloatTensor(size=(1, num_heads, hidden))
+            )
+            self.hop_attn_r = nn.Parameter(
+                torch.FloatTensor(size=(1, num_heads, hidden))
+            )
             self.leaky_relu = nn.LeakyReLU(negative_slope)
-        
+
         if position_emb:
             self.pos_emb = nn.Parameter(torch.FloatTensor(size=(num_hops, in_feats)))
         else:
             self.pos_emb = None
-        
-        self.post_encoder = GroupMLP(hidden, hidden, out_feats, num_heads, n_layers, dropout)
+
+        self.post_encoder = GroupMLP(
+            hidden, hidden, out_feats, num_heads, n_layers, dropout
+        )
         # self.reset_parameters()
 
     def reset_parameters(self):
@@ -74,11 +100,15 @@ class SAGN(PrecomputingBase):
         out = 0
         feats = [self.input_drop(feat) for feat in feats]
         if self.pos_emb is not None:
-            feats = [f +self.pos_emb[[i]] for i, f in enumerate(feats)]
+            feats = [f + self.pos_emb[[i]] for i, f in enumerate(feats)]
         hidden = []
         for i in range(len(feats)):
-            hidden.append(self.multihop_encoders[i](feats[i]).view(-1, self._num_heads, self._hidden))
-        
+            hidden.append(
+                self.multihop_encoders[i](feats[i]).view(
+                    -1, self._num_heads, self._hidden
+                )
+            )
+
         a = None
         if self._weight_style == "attention":
             if self._focal == "first":
@@ -90,7 +120,7 @@ class SAGN(PrecomputingBase):
                 for h in hidden:
                     focal_feat += h
                 focal_feat /= len(hidden)
-                
+
             astack_l = [(h * self.hop_attn_l).sum(dim=-1).unsqueeze(-1) for h in hidden]
             a_r = (focal_feat * self.hop_attn_r).sum(dim=-1).unsqueeze(-1)
             astack = torch.stack([(a_l + a_r) for a_l in astack_l], dim=-1)
@@ -102,17 +132,17 @@ class SAGN(PrecomputingBase):
             if self._hop_norm == "tanh":
                 a = torch.tanh(astack)
             a = self.attn_dropout(a)
-            
+
             for i in range(a.shape[-1]):
                 out += hidden[i] * a[:, :, :, i]
 
         if self._weight_style == "uniform":
             for h in hidden:
                 out += h / len(hidden)
-        
+
         if self._weight_style == "exponent":
             for k, h in enumerate(hidden):
-                out += self._alpha ** k * h
+                out += self._alpha**k * h
 
         out += self.res_fc(feats[0]).view(-1, self._num_heads, self._hidden)
         out = out.flatten(1, -1)
@@ -120,11 +150,12 @@ class SAGN(PrecomputingBase):
         out = out.view(-1, self._num_heads, self._hidden)
         out = self.post_encoder(out)
         out = out.mean(1)
-        
+
         if return_attn:
             return out, a.mean(1) if a is not None else None
         else:
             return out
+
 
 ################################################################
 # DGL's implementation of FeedForwardNet (MLP) for SIGN
@@ -162,13 +193,23 @@ class FeedForwardNet(nn.Module):
 ################################################################
 # More general MLP layer
 class MLP(nn.Module):
-    def __init__(self, in_feats, hidden, out_feats, n_layers, dropout, input_drop=0., residual=False, normalization="batch"):
+    def __init__(
+        self,
+        in_feats,
+        hidden,
+        out_feats,
+        n_layers,
+        dropout,
+        input_drop=0.0,
+        residual=False,
+        normalization="batch",
+    ):
         super(MLP, self).__init__()
         self._residual = residual
         self.layers = nn.ModuleList()
         self.norms = nn.ModuleList()
         self.n_layers = n_layers
-        
+
         self.input_drop = nn.Dropout(input_drop)
 
         if n_layers == 1:
@@ -213,7 +254,7 @@ class MLP(nn.Module):
             prev_x = x
         for layer_id, layer in enumerate(self.layers):
             x = layer(x)
-            
+
             if layer_id < self.n_layers - 1:
                 x = self.dropout(self.relu(self.norms[layer_id](x)))
             if self._residual:
@@ -223,19 +264,46 @@ class MLP(nn.Module):
 
         return x
 
+
 # Multi-head (ensemble) MLP, note that different heads are processed
 # sequentially
 class MultiHeadMLP(nn.Module):
-    def __init__(self, in_feats, hidden, out_feats, n_heads, n_layers, dropout, input_drop=0., concat=False, residual=False, normalization="batch"):
+    def __init__(
+        self,
+        in_feats,
+        hidden,
+        out_feats,
+        n_heads,
+        n_layers,
+        dropout,
+        input_drop=0.0,
+        concat=False,
+        residual=False,
+        normalization="batch",
+    ):
         super().__init__()
         self._concat = concat
-        self.mlp_list = nn.ModuleList([MLP(in_feats, hidden, out_feats, n_layers, dropout, input_drop=input_drop, residual=residual, normalization=normalization) for _ in range(n_heads)])
+        self.mlp_list = nn.ModuleList(
+            [
+                MLP(
+                    in_feats,
+                    hidden,
+                    out_feats,
+                    n_layers,
+                    dropout,
+                    input_drop=input_drop,
+                    residual=residual,
+                    normalization=normalization,
+                )
+                for _ in range(n_heads)
+            ]
+        )
         # self.reset_parameters()
 
     def reset_parameters(self):
         for mlp in self.mlp_list:
             mlp.reset_parameters()
-            
+
     def forward(self, x):
         # x size:
         # [N, d_in] or [N, H, d_in]
@@ -248,23 +316,46 @@ class MultiHeadMLP(nn.Module):
             out = out.flatten(1, -1)
         return out
 
+
 class ParallelMLP(nn.Module):
-    def __init__(self, in_feats, hidden, out_feats, n_heads, n_layers, dropout, input_drop=0., residual=False, normalization="batch"):
+    def __init__(
+        self,
+        in_feats,
+        hidden,
+        out_feats,
+        n_heads,
+        n_layers,
+        dropout,
+        input_drop=0.0,
+        residual=False,
+        normalization="batch",
+    ):
         super(ParallelMLP, self).__init__()
         self._residual = residual
         self.layers = nn.ModuleList()
         self.norms = nn.ModuleList()
         self._n_heads = n_heads
         self._n_layers = n_layers
-        
+
         self.input_drop = nn.Dropout(input_drop)
 
         if self._n_layers == 1:
             # self.layers.append(MultiHeadLinear(in_feats, out_feats, n_heads))
-            self.layers.append(nn.Conv1d(in_feats * n_heads, out_feats * n_heads, kernel_size=1, groups=n_heads))
+            self.layers.append(
+                nn.Conv1d(
+                    in_feats * n_heads,
+                    out_feats * n_heads,
+                    kernel_size=1,
+                    groups=n_heads,
+                )
+            )
         else:
             # self.layers.append(MultiHeadLinear(in_feats, hidden, n_heads))
-            self.layers.append(nn.Conv1d(in_feats * n_heads, hidden * n_heads, kernel_size=1, groups=n_heads))
+            self.layers.append(
+                nn.Conv1d(
+                    in_feats * n_heads, hidden * n_heads, kernel_size=1, groups=n_heads
+                )
+            )
             if normalization == "batch":
                 # self.norms.append(MultiHeadBatchNorm(n_heads, hidden * n_heads))
                 self.norms.append(nn.BatchNorm1d(hidden * n_heads))
@@ -274,7 +365,14 @@ class ParallelMLP(nn.Module):
                 self.norms.append(nn.Identity())
             for i in range(self._n_layers - 2):
                 # self.layers.append(MultiHeadLinear(hidden, hidden, n_heads))
-                self.layers.append(nn.Conv1d(hidden * n_heads, hidden * n_heads, kernel_size=1, groups=n_heads))
+                self.layers.append(
+                    nn.Conv1d(
+                        hidden * n_heads,
+                        hidden * n_heads,
+                        kernel_size=1,
+                        groups=n_heads,
+                    )
+                )
                 if normalization == "batch":
                     # self.norms.append(MultiHeadBatchNorm(n_heads, hidden * n_heads))
                     self.norms.append(nn.BatchNorm1d(hidden * n_heads))
@@ -283,13 +381,17 @@ class ParallelMLP(nn.Module):
                 if normalization == "none":
                     self.norms.append(nn.Identity())
             # self.layers.append(MultiHeadLinear(hidden, out_feats, n_heads))
-            self.layers.append(nn.Conv1d(hidden * n_heads, out_feats * n_heads, kernel_size=1, groups=n_heads))
+            self.layers.append(
+                nn.Conv1d(
+                    hidden * n_heads, out_feats * n_heads, kernel_size=1, groups=n_heads
+                )
+            )
         if self._n_layers > 1:
             self.relu = nn.ReLU()
             self.dropout = nn.Dropout(dropout)
 
         # for head in range(self._n_heads):
-            
+
         #     for layer in self.layers:
 
         #         nn.init.kaiming_uniform_(layer.weight[head], a=math.sqrt(5))
@@ -302,7 +404,7 @@ class ParallelMLP(nn.Module):
     def reset_parameters(self):
 
         gain = nn.init.calculate_gain("relu")
-    
+
         for head in range(self._n_heads):
             for layer in self.layers:
                 nn.init.xavier_uniform_(layer.weight[head], gain=gain)
@@ -333,7 +435,7 @@ class ParallelMLP(nn.Module):
             # x = x.flatten(1, -1)
             if layer_id < self._n_layers - 1:
                 shape = x.shape
-                
+
                 x = self.dropout(self.relu(self.norms[layer_id](x)))
                 # x = x.reshape(shape=shape)
 
@@ -345,12 +447,15 @@ class ParallelMLP(nn.Module):
 
         return x
 
+
 ################################################################
 # Modified multi-head Linear layer
 class MultiHeadLinear(nn.Module):
     def __init__(self, in_feats, out_feats, n_heads, bias=True):
         super().__init__()
-        self.weight = nn.Parameter(torch.FloatTensor(size=(n_heads, in_feats, out_feats)))
+        self.weight = nn.Parameter(
+            torch.FloatTensor(size=(n_heads, in_feats, out_feats))
+        )
         if bias:
             self.bias = nn.Parameter(torch.FloatTensor(size=(n_heads, 1, out_feats)))
         else:
@@ -382,11 +487,13 @@ class MultiHeadLinear(nn.Module):
             x += self.bias
         return x.transpose(0, 1)
 
+
 # Modified multi-head BatchNorm1d layer
 class MultiHeadBatchNorm(nn.Module):
-    def __init__(self, n_heads, in_feats, momentum=0.1, affine=True, device=None,
-        dtype=None):
-        factory_kwargs = {'device': device, 'dtype': dtype}
+    def __init__(
+        self, n_heads, in_feats, momentum=0.1, affine=True, device=None, dtype=None
+    ):
+        factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
         assert in_feats % n_heads == 0
         self._in_feats = in_feats
@@ -399,9 +506,13 @@ class MultiHeadBatchNorm(nn.Module):
         else:
             self.register_parameter("weight", None)
             self.register_parameter("bias", None)
-        
-        self.register_buffer("running_mean", torch.zeros(size=(n_heads, in_feats // n_heads)))
-        self.register_buffer("running_var", torch.ones(size=(n_heads, in_feats // n_heads)))
+
+        self.register_buffer(
+            "running_mean", torch.zeros(size=(n_heads, in_feats // n_heads))
+        )
+        self.register_buffer(
+            "running_var", torch.ones(size=(n_heads, in_feats // n_heads))
+        )
         self.running_mean: Optional[Tensor]
         self.running_var: Optional[Tensor]
         self.reset_parameters()
@@ -417,7 +528,7 @@ class MultiHeadBatchNorm(nn.Module):
     def forward(self, x):
         assert x.shape[1] == self._in_feats
         x = x.view(-1, self._n_heads, self._in_feats // self._n_heads)
-        
+
         self.running_mean = self.running_mean.to(x.device)
         self.running_var = self.running_var.to(x.device)
         if self.training:
@@ -427,25 +538,41 @@ class MultiHeadBatchNorm(nn.Module):
         if bn_training:
             mean = x.mean(dim=0, keepdim=True)
             var = x.var(dim=0, unbiased=False, keepdim=True)
-            out = (x-mean) * torch.rsqrt(var + eps)
-            self.running_mean = (1 - self._momentum) * self.running_mean + self._momentum * mean.detach()
-            self.running_var = (1 - self._momentum) * self.running_var + self._momentum * var.detach()
+            out = (x - mean) * torch.rsqrt(var + eps)
+            self.running_mean = (
+                1 - self._momentum
+            ) * self.running_mean + self._momentum * mean.detach()
+            self.running_var = (
+                1 - self._momentum
+            ) * self.running_var + self._momentum * var.detach()
         else:
-            out = (x - self.running_mean)  * torch.rsqrt(self.running_var + eps)
+            out = (x - self.running_mean) * torch.rsqrt(self.running_var + eps)
         if self._affine:
             out = out * self.weight + self.bias
         return out
 
+
 # Another multi-head MLP defined from scratch
 class GroupMLP(nn.Module):
-    def __init__(self, in_feats, hidden, out_feats, n_heads, n_layers, dropout, input_drop=0., residual=False, normalization="batch"):
+    def __init__(
+        self,
+        in_feats,
+        hidden,
+        out_feats,
+        n_heads,
+        n_layers,
+        dropout,
+        input_drop=0.0,
+        residual=False,
+        normalization="batch",
+    ):
         super(GroupMLP, self).__init__()
         self._residual = residual
         self.layers = nn.ModuleList()
         self.norms = nn.ModuleList()
         self._n_heads = n_heads
         self._n_layers = n_layers
-        
+
         self.input_drop = nn.Dropout(input_drop)
 
         if self._n_layers == 1:
@@ -474,12 +601,14 @@ class GroupMLP(nn.Module):
             self.dropout = nn.Dropout(dropout)
 
         for head in range(self._n_heads):
-            
+
             for layer in self.layers:
 
                 nn.init.kaiming_uniform_(layer.weight[head], a=math.sqrt(5))
                 if layer.bias is not None:
-                    fan_in, _ = nn.init._calculate_fan_in_and_fan_out(layer.weight[head])
+                    fan_in, _ = nn.init._calculate_fan_in_and_fan_out(
+                        layer.weight[head]
+                    )
                     bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
                     nn.init.uniform_(layer.bias[head], -bound, bound)
         self.reset_parameters()
@@ -487,7 +616,7 @@ class GroupMLP(nn.Module):
     def reset_parameters(self):
 
         gain = nn.init.calculate_gain("relu")
-    
+
         for head in range(self._n_heads):
             for layer in self.layers:
                 nn.init.xavier_uniform_(layer.weight[head], gain=gain)
@@ -511,7 +640,7 @@ class GroupMLP(nn.Module):
             prev_x = x
         for layer_id, layer in enumerate(self.layers):
             x = layer(x)
-            
+
             if layer_id < self._n_layers - 1:
                 shape = x.shape
                 x = x.flatten(1, -1)

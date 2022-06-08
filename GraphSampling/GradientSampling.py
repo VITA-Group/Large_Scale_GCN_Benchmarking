@@ -1,4 +1,5 @@
 import math
+import seaborn as sns
 import os
 from typing import Callable, Optional
 
@@ -14,12 +15,6 @@ from torch_sparse import SparseTensor, matmul
 
 import GraphSampling.cpp_extension.sample as sample
 from GraphSampling._GraphSampling import _GraphSampling
-
-"""
-NOTE: gradient sampling:
-1. compute gradients w.r.t. nodes with torch.norm(out.grads, p=2, dim=1)
-2. compute gradients w.r.t. nodes with self.train_loader.adj.storage.value().grads // the grads of edges
-"""
 
 
 class GSConv(SAGEConv):
@@ -121,13 +116,18 @@ class GradientSampler:
         # grads = torch.abs(grads)
         self.grads = scatter(grads, idx, out=self.grads, reduce="mean")
 
-    def update(self, lr=1e-3):
+    def update(self, rate):
         # self.grads = F.relu(self.grads)
-        self.grads = torch.abs(self.grads)
-        prob = self.prob + lr * self.grads
-        self.prob = prob / torch.sum(prob)
+        # self.grads = torch.abs(self.grads)
+        # prob = self.prob - lr * self.grads
+        # self.prob = prob / torch.sum(prob)
         # self.prob = self.grads / torch.sum(self.grads)
-        self.__zero_grad__()
+        # indicator = -torch.abs(self.grads)  # NOTE: ±grads or ±abs(grads)
+        # _, idx = torch.topk(indicator, k=int(rate * self.N))
+        # self.prob[idx] = 0
+        # self.prob = self.prob / torch.sum(self.prob)
+        # self.__zero_grad__()
+        pass
 
 
 class EdgeSampler(GradientSampler):
@@ -238,22 +238,22 @@ class GradientSampling(_GraphSampling):
         )
 
         # cosine annealing
-        # lr = (self.lr / 2) * (1 + math.cos(epoch * math.pi / self.T_end))
+        lr = (self.update_rate / 2) * (1 + math.cos(epoch * math.pi / self.T_end))
         # or Inverse Power
-        k = 1
-        lr = self.update_rate * (1 - epoch / self.T_end) ** k
+        # k = 1
+        # lr = self.update_rate * (1 - epoch / self.T_end) ** k
         # constant lr
         # lr = self.lr
-        self.train_loader.update(lr=lr)
-        if epoch % 5 == 1:
-            if not os.path.exists("./figs"):
-                os.mkdir("./figs")
-            plot = sns.histplot(self.train_loader.prob)
-            fig = plot.get_figure()
-            fig.savefig("./figs/prob_%d.png" % epoch)
+        self.train_loader.update(rate=lr)
+        # if epoch % 5 == 1:
+        #     if not os.path.exists("./figs"):
+        #         os.mkdir("./figs")
+        #     plot = sns.histplot(self.train_loader.grads)
+        #     fig = plot.get_figure()
+        #     fig.savefig("./figs/grads_%d.png" % epoch)
             # plot.clf()
 
-        return total_loss / self.num_steps, total_correct / train_size
+        return total_loss / self.num_steps, total_correct / train_size, self.train_loader.grads
 
     def forward(self, x, adj):
         for i, conv in enumerate(self.convs):

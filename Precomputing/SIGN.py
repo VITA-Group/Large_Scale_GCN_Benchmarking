@@ -8,8 +8,8 @@ from torch_sparse import SparseTensor
 from Precomputing.base import PrecomputingBase
 
 class SIGN(PrecomputingBase):
-    def __init__(self, args, data, train_idx):
-        super(SIGN, self).__init__(args, data, train_idx)
+    def __init__(self, args, data, train_idx, processed_dir):
+        super(SIGN, self).__init__(args, data, train_idx, processed_dir)
 
         self.lins = torch.nn.ModuleList()
         for _ in range(self.num_layers + 1):

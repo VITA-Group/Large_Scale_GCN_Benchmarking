@@ -1,6 +1,7 @@
 .DS_Store
 .vim-arsync
 .idea/
+.dir-locals.el
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

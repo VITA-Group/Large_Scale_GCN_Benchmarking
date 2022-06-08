@@ -1,39 +1,38 @@
+#!/usr/bin/env python3
 import json
 import os
 import sys
 
 hparams = dict(
     lr=[0.01, 0.001, 0.0001],
-    # weight_decay=[0, 1e-4, 1e-3, 1e-2],
-    weight_decay=[0, 1e-5, 5e-5, 1e-4],
+    weight_decay=[0, 1e-5, 1e-4],
     dropout=[0.1, 0.2, 0.5, 0.7],
     epochs=[30, 50, 70],
     dim_hidden=[128, 256, 512],
-    num_layers=[2, 4, 8],
-    # batch_size=[1000, 2000, 5000],
+    use_batch_norm=[True, False],
+    batch_size=[1000, 5000],
+    SLE_threshold=[0.5, 0.7, 0.9],
+    num_layers=[4, 5, 8],
 )
 
 gpu = int(sys.argv[1])
-model = sys.argv[2]
-dataset = sys.argv[3]
-
-num_steps = 5
-if dataset in ["AmazonProducts", "Products"]:
-    num_steps = 30
+model = "AdaGCN_SLE"
+dataset = "Flickr"
 
 def_config = dict(
     cuda_num=gpu,
     type_model=model,
     dataset=dataset,
-    lr=0.01,
+    lr=0.001,
     weight_decay=0.0,
-    dropout=0.2,
+    dropout=0.5,
     epochs=50,
-    dim_hidden=128,
+    dim_hidden=256,
     num_layers=4,
     batch_size=5000,
+    use_batch_norm=False,
+    SLE_threshold=0.7,
     N_exp=3,
-    num_steps=num_steps,
 )
 
 
@@ -51,8 +50,10 @@ keys = [
     "dropout",
     "epochs",
     "dim_hidden",
+    "use_batch_norm",
+    "batch_size",
+    "SLE_threshold",
     "num_layers",
-    # "batch_size",
 ]
 for k in keys:
     best_idx, best_acc = -1, -1

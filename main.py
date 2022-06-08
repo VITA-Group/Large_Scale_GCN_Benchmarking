@@ -1,9 +1,9 @@
 import gc
 import json
-
 import os
 import random
 from datetime import datetime
+
 import numpy as np
 import torch
 
@@ -75,18 +75,30 @@ def main(args):
         set_seed(args)
         # torch.cuda.empty_cache()
         trnr = trainer(args)
-        train_loss, valid_acc, test_acc = trnr.train_and_test(seed)
+        if args.type_model in [
+            "SAdaGCN",
+            "AdaGCN",
+            "GBGCN",
+            "AdaGCN_CandS",
+            "AdaGCN_SLE",
+            "EnGCN",
+        ]:
+            train_loss, valid_acc, test_acc = trnr.train_ensembling(seed)
+        else:
+            train_loss, valid_acc, test_acc = trnr.train_and_test(seed)
         list_test_acc.append(test_acc)
         list_valid_acc.append(valid_acc)
         list_train_loss.append(train_loss)
 
-        # del trnr
-        # torch.cuda.empty_cache()
-        # gc.collect()
+        del trnr
+        torch.cuda.empty_cache()
+        gc.collect()
 
         ## record training data
         print(
-            "mean and std of test acc: ", np.mean(list_test_acc), np.std(list_test_acc)
+            "mean and std of test acc: {:.4f} {:.4f} ".format(
+                np.mean(list_test_acc) * 100, np.std(list_test_acc) * 100
+            )
         )
 
         try:
@@ -104,7 +116,7 @@ def main(args):
             pass
     print(
         "final mean and std of test acc: ",
-        f"{np.mean(list_test_acc):.2f} $\\pm$ {np.std(list_test_acc):.2f}",
+        f"{np.mean(list_test_acc)*100:.4f} $\\pm$ {np.std(list_test_acc)*100:.4f}",
     )
 
 

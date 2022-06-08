@@ -8,20 +8,20 @@ from sklearn.metrics import f1_score
 
 from GraphSampling import *
 from LP.LP_Adj import LabelPropagation_Adj
-from Precomputing import (JK_GAMLP, R_GAMLP, SAGN, SGC, SIGN, Ensembling,
-                          SIGN_v2)
-from Precomputing.Ensembling import Ensembling
+from Precomputing import *
+from torch_geometric.transforms import ToSparseTensor
 
 
-def load_data(dataset):
-    if dataset == "Products":
+def load_data(dataset_name, to_sparse=True):
+    if dataset_name in ["ogbn-products", "ogbn-papers100M"]:
         root = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), "..", "dataset"
+            os.path.dirname(os.path.realpath(__file__)), "..", "dataset", dataset_name
         )
-        dataset = PygNodePropPredDataset(name="ogbn-products", root=root)
+        T = ToSparseTensor() if to_sparse else lambda x: x
+        dataset = PygNodePropPredDataset(name=dataset_name, root=root, transform=T)
         processed_dir = dataset.processed_dir
         split_idx = dataset.get_idx_split()
-        evaluator = Evaluator(name="ogbn-products")
+        evaluator = Evaluator(name=dataset_name)
         data = dataset[0]
         split_masks = {}
         for split in ["train", "valid", "test"]:
@@ -29,13 +29,17 @@ def load_data(dataset):
             mask[split_idx[split]] = True
             data[f"{split}_mask"] = mask
             split_masks[f"{split}"] = data[f"{split}_mask"]
+
         x = data.x
         y = data.y = data.y.squeeze()
 
-    elif dataset in ["Reddit", "Flickr", "AmazonProducts", "Yelp"]:
-        path = os.path.join(os.path.dirname(os.path.realpath(__file__)), '..', 'dataset', dataset)
-        dataset_class = getattr(torch_geometric.datasets, dataset)
-        dataset = dataset_class(path)
+    elif dataset_name in ["Reddit", "Flickr", "AmazonProducts", "Yelp"]:
+        path = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), "..", "dataset", dataset_name
+        )
+        T = ToSparseTensor() if to_sparse else lambda x: x
+        dataset_class = getattr(torch_geometric.datasets, dataset_name)
+        dataset = dataset_class(path, transform=T)
         processed_dir = dataset.processed_dir
         data = dataset[0]
         evaluator = None
@@ -45,10 +49,10 @@ def load_data(dataset):
         split_masks["test"] = data.test_mask
         x = data.x
         y = data.y
-        E = data.edge_index.shape[1]
-        N = data.train_mask.shape[0]
-        data.edge_idx = torch.arange(0, E)
-        data.node_idx = torch.arange(0, N)
+        # E = data.edge_index.shape[1]
+        # N = data.train_mask.shape[0]
+        # data.edge_idx = torch.arange(0, E)
+        # data.node_idx = torch.arange(0, N)
 
     else:
         raise Exception(f"the dataset of {dataset} has not been implemented")
@@ -103,7 +107,7 @@ class trainer(object):
                 self.split_masks,
                 self.evaluator,
                 self.processed_dir,
-            ) = load_data(args.dataset)
+            ) = load_data(args.dataset, args.tosparse)
 
         if self.type_model in ["GraphSAGE"]:
             self.model = GraphSAGE(
@@ -134,7 +138,9 @@ class trainer(object):
                 args, self.data, self.split_masks["train"]
             )
         elif self.type_model == "SIGN_MLP":
-            self.model = SIGN_MLP(args, self.data, self.split_masks["train"])
+            self.model = SIGN_MLP(
+                args, self.data, self.split_masks["train"], self.processed_dir
+            )
         elif self.type_model == "EdgeSampling":
             self.model = EdgeSampling(
                 args, self.data, self.split_masks["train"], self.processed_dir
@@ -145,13 +151,67 @@ class trainer(object):
             )
         elif self.type_model == "SIGN":
             if self.dataset == "Products":
-                self.model = SIGN_v2(args, self.data, self.split_masks["train"])
+                self.model = SIGN_v2(
+                    args, self.data, self.split_masks["train"], self.processed_dir
+                )
             else:
-                self.model = SIGN(args, self.data, self.split_masks["train"])
+                self.model = SIGN(
+                    args, self.data, self.split_masks["train"], self.processed_dir
+                )
         elif self.type_model == "SGC":
-            self.model = SGC(args, self.data, self.split_masks["train"])
+            self.model = SGC(
+                args, self.data, self.split_masks["train"], self.processed_dir
+            )
         elif self.type_model == "SAGN":
-            self.model = SAGN(args, self.data, self.split_masks["train"])
+            self.model = SAGN(
+                args, self.data, self.split_masks["train"], self.processed_dir
+            )
+        elif self.type_model == "SAdaGCN":
+            self.model = SAdaGCN(
+                args,
+                self.data,
+                self.split_masks["train"],
+                self.processed_dir,
+                self.evaluator,
+            )
+        elif self.type_model == "AdaGCN":
+            self.model = AdaGCN(
+                args,
+                self.data,
+                self.split_masks["train"],
+                self.processed_dir,
+                self.evaluator,
+            )
+        elif self.type_model == "AdaGCN_CandS":
+            self.model = AdaGCN_CandS(
+                args,
+                self.data,
+                self.split_masks["train"],
+                self.processed_dir,
+                self.evaluator,
+            )
+        elif self.type_model == "AdaGCN_SLE":
+            self.model = AdaGCN_SLE(
+                args,
+                self.data,
+                self.split_masks["train"],
+                self.processed_dir,
+                self.evaluator,
+            )
+        elif self.type_model == "EnGCN":
+            self.model = EnGCN(
+                args,
+                self.data,
+                self.evaluator,
+            )
+        elif self.type_model == "GBGCN":
+            self.model = GBGCN(
+                args,
+                self.data,
+                self.split_masks["train"],
+                self.processed_dir,
+                self.evaluator,
+            )
         elif self.type_model == "GAMLP":
             if args.GAMLP_type == "R":
                 self.model = R_GAMLP(
@@ -171,8 +231,10 @@ class trainer(object):
                 )
             else:
                 raise ValueError(f"Unknown GAMLP type: {args.GAMLP_type}")
-        elif self.type_model == "Ensembling":
-            self.model = Ensembling(args, self.data, self.split_masks["train"])
+        elif self.type_model == "Bagging":
+            self.model = Bagging(
+                args, self.data, self.split_masks["train"], self.processed_dir
+            )
         else:
             raise NotImplementedError
         self.model.to(self.device)
@@ -188,11 +250,15 @@ class trainer(object):
         input_dict = self.get_input_dict(0)
         self.model.mem_speed_bench(input_dict)
 
+    def train_ensembling(self, seed):
+        # assert isinstance(self.model, (SAdaGCN, AdaGCN, GBGCN))
+        input_dict = self.get_input_dict(0)
+        acc = self.model.train_and_test(input_dict)
+        return acc
+
     def train_and_test(self, seed):
         results = []
-
         for epoch in range(self.epochs):
-
             train_loss, train_acc = self.train_net(epoch)  # -wz-run
             print(
                 f"Seed: {seed:02d}, "
@@ -274,7 +340,13 @@ class trainer(object):
             "GAMLP",
             "GPRGNN",
             "PPRGo",
-            "Ensembling",
+            "Bagging",
+            "SAdaGCN",
+            "AdaGCN",
+            "AdaGCN_CandS",
+            "AdaGCN_SLE",
+            "EnGCN",
+            "GBGCN",
         ]:
             input_dict = {
                 "split_masks": self.split_masks,
