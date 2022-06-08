@@ -13,6 +13,8 @@ class BaseOptions:
             action="store_true",
             help="whether to get the memory usage and throughput",
         )
+        parser.add_argument("--debug", action="store_true")
+        parser.add_argument("--tosparse", action="store_true")
         parser.add_argument(
             "--dataset",
             type=str,
@@ -55,6 +57,7 @@ class BaseOptions:
                 "AdaGCN",
                 "AdaGCN_CandS",
                 "AdaGCN_SLE",
+                "EnGCN",
                 "GBGCN",
             ],
         )
@@ -159,7 +162,7 @@ class BaseOptions:
 
         parser.add_argument("--SLE_threshold", type=float, default=0.9)
         parser.add_argument("--num_mlp_layers", type=int, default=3)
-        parser.add_argument("--use_batch_norm", type=bool, default=False)
+        parser.add_argument("--use_batch_norm", type=bool, default=True)
         parser.add_argument("--num_heads", type=int, default=1)
         parser.add_argument("--use_label_mlp", type=bool, default=True)
 

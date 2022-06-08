@@ -1,7 +1,6 @@
 import os
 
 import numpy as np
-import seaborn as sns
 import torch
 import torch_geometric.datasets
 from ogb.nodeproppred import Evaluator, PygNodePropPredDataset
@@ -10,14 +9,16 @@ from sklearn.metrics import f1_score
 from GraphSampling import *
 from LP.LP_Adj import LabelPropagation_Adj
 from Precomputing import *
+from torch_geometric.transforms import ToSparseTensor
 
 
-def load_data(dataset_name):
+def load_data(dataset_name, to_sparse=True):
     if dataset_name in ["ogbn-products", "ogbn-papers100M"]:
         root = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "..", "dataset", dataset_name
         )
-        dataset = PygNodePropPredDataset(name=dataset_name, root=root)
+        T = ToSparseTensor() if to_sparse else lambda x: x
+        dataset = PygNodePropPredDataset(name=dataset_name, root=root, transform=T)
         processed_dir = dataset.processed_dir
         split_idx = dataset.get_idx_split()
         evaluator = Evaluator(name=dataset_name)
@@ -28,6 +29,7 @@ def load_data(dataset_name):
             mask[split_idx[split]] = True
             data[f"{split}_mask"] = mask
             split_masks[f"{split}"] = data[f"{split}_mask"]
+
         x = data.x
         y = data.y = data.y.squeeze()
 
@@ -35,8 +37,9 @@ def load_data(dataset_name):
         path = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "..", "dataset", dataset_name
         )
+        T = ToSparseTensor() if to_sparse else lambda x: x
         dataset_class = getattr(torch_geometric.datasets, dataset_name)
-        dataset = dataset_class(path)
+        dataset = dataset_class(path, transform=T)
         processed_dir = dataset.processed_dir
         data = dataset[0]
         evaluator = None
@@ -46,10 +49,10 @@ def load_data(dataset_name):
         split_masks["test"] = data.test_mask
         x = data.x
         y = data.y
-        E = data.edge_index.shape[1]
-        N = data.train_mask.shape[0]
-        data.edge_idx = torch.arange(0, E)
-        data.node_idx = torch.arange(0, N)
+        # E = data.edge_index.shape[1]
+        # N = data.train_mask.shape[0]
+        # data.edge_idx = torch.arange(0, E)
+        # data.node_idx = torch.arange(0, N)
 
     else:
         raise Exception(f"the dataset of {dataset} has not been implemented")
@@ -104,7 +107,7 @@ class trainer(object):
                 self.split_masks,
                 self.evaluator,
                 self.processed_dir,
-            ) = load_data(args.dataset)
+            ) = load_data(args.dataset, args.tosparse)
 
         if self.type_model in ["GraphSAGE"]:
             self.model = GraphSAGE(
@@ -193,6 +196,12 @@ class trainer(object):
                 self.data,
                 self.split_masks["train"],
                 self.processed_dir,
+                self.evaluator,
+            )
+        elif self.type_model == "EnGCN":
+            self.model = EnGCN(
+                args,
+                self.data,
                 self.evaluator,
             )
         elif self.type_model == "GBGCN":
@@ -336,6 +345,7 @@ class trainer(object):
             "AdaGCN",
             "AdaGCN_CandS",
             "AdaGCN_SLE",
+            "EnGCN",
             "GBGCN",
         ]:
             input_dict = {

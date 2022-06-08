@@ -4,19 +4,19 @@ import os
 import sys
 
 hparams = dict(
-    lr=[0.01, 0.001, 0.0001],
-    weight_decay=[0, 1e-5, 1e-4],
-    dropout=[0.2, 0.5, 0.7],
-    epochs=[30, 50, 70],
-    dim_hidden=[256, 512, 1024],
-    use_batch_norm=[True, False],
-    batch_size=[5000, 10000, 50000],
-    SLE_threshold=[0.5, 0.7, 0.9, 0.95],
-    num_layers=[4, 5, 8],
+    # lr=[0.01, 0.001],
+    # weight_decay=[0, 1e-5, 1e-4],
+    # dropout=[0.2, 0.5, 0.7],
+    # epochs=[50, 70],
+    # dim_hidden=[512, 1024],
+    # use_batch_norm=[True, False],
+    # batch_size=[5000, 10000],
+    SLE_threshold=[0.95, 0.98],
+    num_layers=[4, 8],
 )
 
 gpu = int(sys.argv[1])
-model = "AdaGCN_SLE"
+model = "EnGCN"
 dataset = "ogbn-papers100M"
 
 def_config = dict(
@@ -26,13 +26,13 @@ def_config = dict(
     lr=0.001,
     weight_decay=0.0,
     dropout=0.5,
-    epochs=50,
-    dim_hidden=512,
+    epochs=70,
+    dim_hidden=1024,
     num_layers=4,
     batch_size=10000,
     use_batch_norm=True,
-    SLE_threshold=0.5,
-    N_exp=3,
+    SLE_threshold=0.95,
+    N_exp=1,
 )
 
 
@@ -40,18 +40,18 @@ def make_command_line(exp_name, **kwargs):
     config = def_config.copy()
     config.update(kwargs)
     args = " ".join([f"--{k} {v}" for k, v in config.items()])
-    return "python main.py " + f"--resume --exp_name {exp_name} " + args
+    return "python main.py " + f"--resume --exp_name {exp_name} --tosparse " + args
 
 
 optim_config = {}
 keys = [
-    "lr",
-    "weight_decay",
-    "dropout",
-    "epochs",
-    "dim_hidden",
-    "use_batch_norm",
-    "batch_size",
+    # "lr",
+    # "weight_decay",
+    # "dropout",
+    # "epochs",
+    # "dim_hidden",
+    # "use_batch_norm",
+    # "batch_size",
     "SLE_threshold",
     "num_layers",
 ]

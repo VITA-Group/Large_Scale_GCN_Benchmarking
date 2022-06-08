@@ -118,7 +118,7 @@ class MLP_SLE(torch.nn.Module):
             torch.load(f"./.cache/{self.type_model}_{self.dataset}_label_mlp.pt")
         )
 
-    def train_net(self, train_loader, loss_op, sample_weights, device, use_label_mlp):
+    def train_net(self, train_loader, loss_op, device, use_label_mlp):
         self.train()
         total_correct, total_loss = 0, 0.0
         y_true, y_preds = [], []

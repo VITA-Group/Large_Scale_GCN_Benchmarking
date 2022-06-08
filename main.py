@@ -1,3 +1,4 @@
+import gc
 import json
 import os
 import random
@@ -80,6 +81,7 @@ def main(args):
             "GBGCN",
             "AdaGCN_CandS",
             "AdaGCN_SLE",
+            "EnGCN",
         ]:
             train_loss, valid_acc, test_acc = trnr.train_ensembling(seed)
         else:
@@ -88,9 +90,9 @@ def main(args):
         list_valid_acc.append(valid_acc)
         list_train_loss.append(train_loss)
 
-        # del trnr
-        # torch.cuda.empty_cache()
-        # gc.collect()
+        del trnr
+        torch.cuda.empty_cache()
+        gc.collect()
 
         ## record training data
         print(
@@ -114,7 +116,7 @@ def main(args):
             pass
     print(
         "final mean and std of test acc: ",
-        f"{np.mean(list_test_acc):.2f} $\\pm$ {np.std(list_test_acc):.2f}",
+        f"{np.mean(list_test_acc)*100:.4f} $\\pm$ {np.std(list_test_acc)*100:.4f}",
     )
 
 

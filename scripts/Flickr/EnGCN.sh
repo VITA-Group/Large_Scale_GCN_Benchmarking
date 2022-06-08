@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-
-python main.py --type_model AdaGCN_SLE --dataset Flickr \
+python main.py --type_model EnGCN --dataset Flickr \
+    --cuda_num 3 \
     --lr 0.0001 \
     --weight_decay 0.0001 \
     --dropout 0.2 \
@@ -10,4 +10,5 @@ python main.py --type_model AdaGCN_SLE --dataset Flickr \
     --batch_size 1000 \
     --use_batch_norm True \
     --SLE_threshold 0.9 \
-    --N_exp 3
+    --N_exp 10 \
+    --tosparse
