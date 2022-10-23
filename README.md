@@ -1,6 +1,8 @@
 # Benchmark ScalableGraphLearning
 
-This is an authors' implementation of "Benchmark Scalable Graph Learning" in Pytorch.
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+
+This is an authors' implementation of "[A Comprehensive Study on Large Scale Graph Training: Benchmarking and Rethinking](https://arxiv.org/pdf/2210.07494.pdf)" in Pytorch.
 
 Authors: Keyu Duan, Zirui Liu, Wenqing Zheng, Peihao Wang, Kaixiong Zhou, Tianlong Chen, Zhangyang Wang, Xia Hu.
 
@@ -127,3 +129,16 @@ bash scripts/$dataset/EnGCN.sh
 1. When using PyG, as illustrated in the [official post](https://pytorch-geometric.readthedocs.io/en/latest/notes/sparse_tensor.html), it is recommended to use the **transposed sparse matrix** instead of the edge_index, which can significantly reduce both the memory footprint and the computation overhead. PyG provides a function called [ToSparseTensor](https://pytorch-geometric.readthedocs.io/en/latest/modules/transforms.html#torch_geometric.transforms.ToSparseTensor) to convert the edge index into the transposed sparse matrix.
 
 2. PyG can be used with the mixed precision training or NVIDIA Apex to significantly reduce the memory footprint. Note that the SPMM operater officially support half precision **since the end of August**. You might need to upgrade the torch_sparse package to utilize this new feature.
+
+## Citation
+
+If you find this repo useful, please cite:
+
+```bibtex
+@article{duan2022comprehensive,
+  title={A Comprehensive Study on Large-Scale Graph Training: Benchmarking and Rethinking},
+  author={Duan, Keyu and Liu, Zirui and Wang, Peihao and Zheng, Wenqing and Zhou, Kaixiong and Chen, Tianlong and Hu, Xia and Wang, Zhangyang},
+  journal={arXiv preprint arXiv:2210.07494},
+  year={2022}
+}
+```

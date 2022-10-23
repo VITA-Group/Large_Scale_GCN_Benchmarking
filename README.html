@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+	"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+<title>README.html</title>
+<meta http-equiv="Content-Type" content="application/xhtml+xml;charset=utf-8"/>
+<link rel="stylesheet" type="text/css" media="all" href="https://cdn.jsdelivr.net/npm/github-markdown-css/github-markdown.min.css"  />
+<link rel="stylesheet" type="text/css" media="all" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release/build/styles/github.min.css"  /><meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'><style> body { box-sizing: border-box; max-width: 740px; width: 100%; margin: 40px auto; padding: 0 10px; } </style><script id='MathJax-script' async src='https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js'></script><script src='https://cdn.jsdelivr.net/gh/highlightjs/cdn-release/build/highlight.min.js'></script><script>document.addEventListener('DOMContentLoaded', () => { document.body.classList.add('markdown-body'); document.querySelectorAll('pre[lang] > code').forEach((code) => { code.classList.add(code.parentElement.lang); }); document.querySelectorAll('pre > code').forEach((code) => { hljs.highlightBlock(code); }); });</script>
+</head>
+
+<body>
+
+<h1 id="benchmark-scalablegraphlearning">Benchmark
+ScalableGraphLearning</h1>
+<p><a href="https://opensource.org/licenses/MIT"><img
+src="https://img.shields.io/badge/License-MIT-green.svg"
+alt="License: MIT" /></a></p>
+<p>This is an authors’ implementation of “A Comprehensive Study on Large
+Scale Graph Training: Benchmarking and Rethinking” in Pytorch.</p>
+<p>Authors: Keyu Duan, Zirui Liu, Wenqing Zheng, Peihao Wang, Kaixiong
+Zhou, Tianlong Chen, Zhangyang Wang, Xia Hu.</p>
+<h2 id="introduction">Introduction</h2>
+<p>Bag of approaches to train large-scale graphs, including methods
+based upon sub-graph sampling, precomputing, and label propagation.</p>
+<h2 id="requirements">Requirements</h2>
+<p>We recommend using anaconda to manage the python environment. To
+create the environment for our benchmark, please follow the instruction
+as follows.</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">conda</span> create <span class="at">-n</span> <span class="va">$your_env_name</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">conda</span> activate <span class="va">$your_env_name</span></span></code></pre></div>
+<p>install pytorch following the instruction on <a
+href="https://pytorch.org/get-started/locally/">pytorch
+installation</a></p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ex">conda</span> install pytorch torchvision torchaudio cudatoolkit <span class="at">-c</span> pytorch</span></code></pre></div>
+<p>intall pytorch-geometric following the instruction on <a
+href="https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html">pyg
+installation</a></p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">conda</span> install pyg <span class="at">-c</span> pyg <span class="at">-c</span> conda-forge</span></code></pre></div>
+<p>install the other dependencies</p>
+<div class="sourceCode" id="cb4"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install ogb <span class="co"># package for ogb datasets</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install texttable <span class="co"># show the running hyperparameters</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install h5py <span class="co"># for Label Propagation</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> GraphSampling <span class="kw">&amp;&amp;</span> <span class="ex">pip</span> install <span class="at">-v</span> <span class="at">-e</span> . <span class="co"># install our implemented sampler</span></span></code></pre></div>
+<h3 id="our-installation-notes-for-torch-geometric">Our Installation
+Notes for torch-geometric</h3>
+<p>What env configs that we tried that have succeeded: Mac/Linux + cuda
+driver 11.2 + Torch with cuda 11.1 + torch_geometric/torch sparse/etc
+with cuda 11.1.</p>
+<p>What env configs that we tried by did not work: Linux + Cuda
+11.1/11.0/10.2 + whatever version of Torch</p>
+<p>In the above case when it did work, we adopted the following
+installation commands, and it automatically downloaded built wheels, and
+the installation completes within seconds. Installation codes that we
+adopted on Linux cuda 11.2 that did work:</p>
+<div class="sourceCode" id="cb5"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>  <span class="ex">pip3</span> install torch==1.9.0+cu111 torchvision==0.10.0+cu111 torchaudio==0.9.0 <span class="at">-f</span> https://download.pytorch.org/whl/torch_stable.html</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="ex">pip</span> install torch-scatter <span class="at">-f</span> https://pytorch-geometric.com/whl/torch-1.9.0+cu111.html</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="ex">pip</span> install torch-sparse <span class="at">-f</span> https://pytorch-geometric.com/whl/torch-1.9.0+cu111.html</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="ex">pip</span> install torch-geometric</span></code></pre></div>
+<p><strong>Til now, you should be able to play with all of our
+implemented models except </strong>Label Propagation<strong>. To run LP,
+please follow our installation notes.</strong></p>
+<h3
+id="installation-guides-for-julia-only-required-for-certain-modes-of-label-propagation-inherited-from-cs">Installation
+guides for Julia (only required for certain modes of Label propagation,
+inherited from <a
+href="https://github.com/CUAI/CorrectAndSmooth">C&amp;S</a> )</h3>
+<p>First install Julia and PyJulia, following below instructions or
+instructions in
+https://pyjulia.readthedocs.io/en/latest/installation.html#install-julia</p>
+<h4 id="installation-guide-for-pyjulia-on-linux">Installation guide for
+PyJulia on Linux:</h4>
+<p>Download Julia from official website, extract to whatever directory
+on your machine, there will be ‘/bin’ at in the extracted folder.</p>
+<div class="sourceCode" id="cb6"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="bu">export</span> <span class="va">PATH</span><span class="op">=</span><span class="va">$PATH</span>:/path-to-yout-extracted-julia/bin</span></code></pre></div>
+<p>After this step, type “julia”, then you should be able to see Julia
+LOGO.</p>
+<div class="sourceCode" id="cb7"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python3</span> <span class="at">-m</span> pip install <span class="at">--user</span> julia</span></code></pre></div>
+<p>use python to install</p>
+<div class="sourceCode" id="cb8"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="op">&gt;&gt;&gt;</span> <span class="im">import</span> julia</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="op">&gt;&gt;&gt;</span> julia.install()</span></code></pre></div>
+<p>activate julia and install requirements. To activate julia, until you
+see <code>julia&gt;</code>, then type the following lines to install
+required packages in julia console:</p>
+<div class="sourceCode" id="cb9"><pre
+class="sourceCode julia"><code class="sourceCode julia"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> <span class="bu">Pkg; Pkg</span>.<span class="fu">add</span>(<span class="st">&quot;LinearMaps&quot;</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> <span class="bu">Pkg; Pkg</span>.<span class="fu">add</span>(<span class="st">&quot;Arpack&quot;</span>)</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="im">import</span> <span class="bu">Pkg; Pkg</span>.<span class="fu">add</span>(<span class="st">&quot;MAT&quot;</span>)</span></code></pre></div>
+<h2 id="play-with-our-implemented-models">Play with our implemented
+models</h2>
+<p>To train a scalable graph training model, simply run:</p>
+<div class="sourceCode" id="cb10"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> main.py <span class="at">--cuda_num</span><span class="op">=</span>0  <span class="at">--type_model</span><span class="op">=</span><span class="va">$type_model</span> <span class="at">--dataset</span><span class="op">=</span><span class="va">$dataset</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co"># type_model in [&#39;GraphSAGE&#39;, &#39;FastGCN&#39;, &#39;LADIES&#39;, &#39;ClusterGCN&#39;, &#39;GraphSAINT&#39;, &#39;SGC&#39;, &#39;SIGN&#39;, &#39;SIGN_MLP&#39;, &#39;LP_Adj&#39;, &#39;SAGN&#39;, &#39;GAMLP&#39;]</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="co"># dataset in [&#39;Flickr&#39;, &#39;Reddit&#39;, &#39;Products&#39;, &#39;Yelp&#39;, &#39;AmazonProducts&#39;]</span></span></code></pre></div>
+<p>To test the throughput and memory usage for a certain model on a
+dataset, simply add <code>--debug_mem_speed</code></p>
+<div class="sourceCode" id="cb11"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> main.py <span class="at">--cuda_num</span><span class="op">=</span>0  <span class="at">--type_model</span><span class="op">=</span><span class="va">$type_model</span> <span class="at">--dataset</span><span class="op">=</span><span class="va">$dataset</span> <span class="at">--debug_mem_speed</span></span></code></pre></div>
+<p>To perform the same greedy hyperparemeter search as described in our
+paper, please run</p>
+<div class="sourceCode" id="cb12"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> run_HP.py <span class="va">$cuda_num</span> <span class="va">$type_model</span> <span class="va">$dataset</span></span></code></pre></div>
+<p>For detailed configuration, please refer to
+<code>run_HP.py</code>.</p>
+<h2 id="reproduce-results-of-engcn">Reproduce results of EnGCN</h2>
+<p>Simply run</p>
+<div class="sourceCode" id="cb13"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co"># dataset = [Flickr, Reddit, ogbn-products]</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> scripts/<span class="va">$dataset</span>/EnGCN.sh</span></code></pre></div>
+<h2 id="some-tricks-for-reducing-the-memory-footprint">Some tricks for
+reducing the memory footprint</h2>
+<ol type="1">
+<li><p>When using PyG, as illustrated in the <a
+href="https://pytorch-geometric.readthedocs.io/en/latest/notes/sparse_tensor.html">official
+post</a>, it is recommended to use the <strong>transposed sparse
+matrix</strong> instead of the edge_index, which can significantly
+reduce both the memory footprint and the computation overhead. PyG
+provides a function called <a
+href="https://pytorch-geometric.readthedocs.io/en/latest/modules/transforms.html#torch_geometric.transforms.ToSparseTensor">ToSparseTensor</a>
+to convert the edge index into the transposed sparse matrix.</p></li>
+<li><p>PyG can be used with the mixed precision training or NVIDIA Apex
+to significantly reduce the memory footprint. Note that the SPMM
+operater officially support half precision <strong>since the end of
+August</strong>. You might need to upgrade the torch_sparse package to
+utilize this new feature.</p></li>
+</ol>
+
+</body>
+</html>
