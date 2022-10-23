@@ -1,7 +1,7 @@
+import gc
 import os
 import time
 
-import gc
 import torch
 import torch.nn.functional as F
 from Precomputing.base import PrecomputingBase
@@ -52,7 +52,7 @@ class EnGCN(torch.nn.Module):
 
     def to(self, device):
         self.model.to(device)
-        if self.dataset in ["ogbn-papers100M", "Flickr"]:
+        if self.dataset in ["ogbn-papers100M"]:
             self.model.to(dtype=torch.bfloat16)
 
     def train_and_test(self, input_dict):
@@ -66,7 +66,7 @@ class EnGCN(torch.nn.Module):
         del input_dict
         gc.collect()
         self.to(device)
-        if self.dataset in ["ogbn-papers100M", "Flickr"]:
+        if self.dataset in ["ogbn-papers100M"]:
             y = y.to(torch.long)
             x = x.to(torch.bfloat16)
             results = torch.zeros((y.size(0), self.num_classes), dtype=torch.bfloat16)
@@ -144,6 +144,7 @@ class EnGCN(torch.nn.Module):
             results += (self.num_classes - 1) * (
                 out - torch.mean(out, dim=1).view(-1, 1)
             )
+            del out
 
         out, acc = self.evaluate(results, y, split_masks)
         print(

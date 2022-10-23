@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 python main.py --type_model EnGCN --dataset Flickr \
-    --cuda_num 3 \
+    --cuda_num 0 \
     --lr 0.0001 \
     --weight_decay 0.0001 \
     --dropout 0.2 \

@@ -145,11 +145,8 @@ class PrecomputingBase(torch.nn.Module):
         y_true, y_preds = [], []
 
         for xs, y in train_loader:
-
             xs = [x.to(device) for x in torch.split(xs, dim_feat, -1)]
             y = y.to(device)
-
-        for xs, y in train_loader:
             optimizer.zero_grad()
             out = self.forward(xs)
             if isinstance(loss_op, torch.nn.NLLLoss):

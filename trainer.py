@@ -1,19 +1,20 @@
 import os
+from ogb.nodeproppred import Evaluator, PygNodePropPredDataset
 
 import numpy as np
 import torch
 import torch_geometric.datasets
-from ogb.nodeproppred import Evaluator, PygNodePropPredDataset
 from sklearn.metrics import f1_score
+from torch.profiler import ProfilerActivity, profile
+from torch_geometric.transforms import ToSparseTensor
 
 from GraphSampling import *
 from LP.LP_Adj import LabelPropagation_Adj
 from Precomputing import *
-from torch_geometric.transforms import ToSparseTensor
 
 
 def load_data(dataset_name, to_sparse=True):
-    if dataset_name in ["ogbn-products", "ogbn-papers100M"]:
+    if dataset_name in ["ogbn-products", "ogbn-papers100M", "ogbn-arxiv"]:
         root = os.path.join(
             os.path.dirname(os.path.realpath(__file__)), "..", "dataset", dataset_name
         )
@@ -85,29 +86,14 @@ class trainer(object):
         else:
             self.loss_op = torch.nn.NLLLoss()
 
-        if self.dataset == "ogbn-arxiv":
-            self.data, self.split_idx = load_ogbn(self.dataset)
-            self.x, self.y = self.data.x, self.data.y
-            self.train_idx = self.split_idx["train"]
-            self.evaluator = Evaluator(name="ogbn-arxiv")
-            train_mask = idx2mask(self.split_idx["train"], args.N_nodes)
-            valid_mask = idx2mask(self.split_idx["valid"], args.N_nodes)
-            test_mask = idx2mask(self.split_idx["test"], args.N_nodes)
-            self.split_masks = {
-                "train": train_mask,
-                "valid": valid_mask,
-                "test": test_mask,
-            }
-
-        else:
-            (
-                self.data,
-                self.x,
-                self.y,
-                self.split_masks,
-                self.evaluator,
-                self.processed_dir,
-            ) = load_data(args.dataset, args.tosparse)
+        (
+            self.data,
+            self.x,
+            self.y,
+            self.split_masks,
+            self.evaluator,
+            self.processed_dir,
+        ) = load_data(args.dataset, args.tosparse)
 
         if self.type_model in ["GraphSAGE"]:
             self.model = GraphSAGE(
@@ -141,14 +127,6 @@ class trainer(object):
             self.model = SIGN_MLP(
                 args, self.data, self.split_masks["train"], self.processed_dir
             )
-        elif self.type_model == "EdgeSampling":
-            self.model = EdgeSampling(
-                args, self.data, self.split_masks["train"], self.processed_dir
-            )
-        elif self.type_model == "GradientSampling":
-            self.model = GradientSampling(
-                args, self.data, self.split_masks["train"], self.processed_dir
-            )
         elif self.type_model == "SIGN":
             if self.dataset == "Products":
                 self.model = SIGN_v2(
@@ -166,32 +144,8 @@ class trainer(object):
             self.model = SAGN(
                 args, self.data, self.split_masks["train"], self.processed_dir
             )
-        elif self.type_model == "SAdaGCN":
-            self.model = SAdaGCN(
-                args,
-                self.data,
-                self.split_masks["train"],
-                self.processed_dir,
-                self.evaluator,
-            )
         elif self.type_model == "AdaGCN":
             self.model = AdaGCN(
-                args,
-                self.data,
-                self.split_masks["train"],
-                self.processed_dir,
-                self.evaluator,
-            )
-        elif self.type_model == "AdaGCN_CandS":
-            self.model = AdaGCN_CandS(
-                args,
-                self.data,
-                self.split_masks["train"],
-                self.processed_dir,
-                self.evaluator,
-            )
-        elif self.type_model == "AdaGCN_SLE":
-            self.model = AdaGCN_SLE(
                 args,
                 self.data,
                 self.split_masks["train"],
@@ -202,14 +156,6 @@ class trainer(object):
             self.model = EnGCN(
                 args,
                 self.data,
-                self.evaluator,
-            )
-        elif self.type_model == "GBGCN":
-            self.model = GBGCN(
-                args,
-                self.data,
-                self.split_masks["train"],
-                self.processed_dir,
                 self.evaluator,
             )
         elif self.type_model == "GAMLP":
@@ -231,10 +177,6 @@ class trainer(object):
                 )
             else:
                 raise ValueError(f"Unknown GAMLP type: {args.GAMLP_type}")
-        elif self.type_model == "Bagging":
-            self.model = Bagging(
-                args, self.data, self.split_masks["train"], self.processed_dir
-            )
         else:
             raise NotImplementedError
         self.model.to(self.device)
@@ -254,6 +196,16 @@ class trainer(object):
         # assert isinstance(self.model, (SAdaGCN, AdaGCN, GBGCN))
         input_dict = self.get_input_dict(0)
         acc = self.model.train_and_test(input_dict)
+        return acc
+
+    def test_cpu_mem(self, seed):
+        input_dict = self.get_input_dict(0)
+        with profile(
+            activities=[ProfilerActivity.CPU], profile_memory=True, record_shapes=True
+        ) as prof:
+            acc = self.model.train_and_test(input_dict)
+
+        print(prof.key_averages().table(sort_by="self_cpu_memory_usage", row_limit=10))
         return acc
 
     def train_and_test(self, seed):
@@ -443,15 +395,3 @@ class trainer(object):
                 )
 
         return out, (train_acc, valid_acc, test_acc)
-
-
-def load_ogbn(dataset="ogbn-arxiv"):
-    import torch_geometric.transforms as T
-    from torch_geometric.utils import to_undirected
-
-    dataset = PygNodePropPredDataset(name=dataset)
-    split_idx = dataset.get_idx_split()
-    data = dataset[0]
-    data.edge_index = to_undirected(data.edge_index, data.num_nodes)
-    data.y = data.y.squeeze(1)
-    return data, split_idx

@@ -11,6 +11,7 @@ from utils import GB, MB, compute_tensor_bytes, get_memory_usage
 from ._GraphSampling import _GraphSampling
 
 
+
 class ClusterGCN(_GraphSampling):
     # Implemented base on https://github.com/rusty1s/pytorch_geometric/blob/master/examples/graph_saint.py
 
