@@ -118,10 +118,15 @@ For detailed configuration, please refer to `run_HP.py`.
 
 ## Reproduce results of EnGCN
 
-Simply run
+| EnGCN               | Flickr           | Reddit           | ogbn-arxiv       | ogbn-products    |
+| ------------------- | ---------------- | ---------------- | ---------------- | ---------------- |
+| Test Accuracy       | 56.4312 ± 0.2156 | 97.1407 ± 0.0338 | 77.9829 ± 0.0660 | 87.9851 ± 0.0395 |
+| Validation Accuracy | 55.8637 ± 0.1485 | 97.2746 ± 0.0326 | 78.7630 ± 0.0523 | 92.4757 ± 0.0342 |
+
+To reproduce the results, simply run
 
 ```bash
-# dataset = [Flickr, Reddit, ogbn-products]
+# dataset = [Flickr, Reddit, ogbn-arxiv, ogbn-products]
 bash scripts/$dataset/EnGCN.sh
 ```
 
@@ -133,7 +138,7 @@ bash scripts/$dataset/EnGCN.sh
 
 ## Citation
 
-If you find this repo useful, please cite:
+If you find this repo useful, please star the repo and cite:
 
 ```bibtex
 @article{duan2022comprehensive,

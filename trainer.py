@@ -6,7 +6,7 @@ import torch
 import torch_geometric.datasets
 from sklearn.metrics import f1_score
 from torch.profiler import ProfilerActivity, profile
-from torch_geometric.transforms import ToSparseTensor
+from torch_geometric.transforms import ToSparseTensor, ToUndirected
 
 from GraphSampling import *
 from LP.LP_Adj import LabelPropagation_Adj
@@ -19,6 +19,8 @@ def load_data(dataset_name, to_sparse=True):
             os.path.dirname(os.path.realpath(__file__)), "..", "dataset", dataset_name
         )
         T = ToSparseTensor() if to_sparse else lambda x: x
+        if to_sparse and dataset_name == "ogbn-arxiv":
+            T = lambda x: ToSparseTensor()(ToUndirected()(x))
         dataset = PygNodePropPredDataset(name=dataset_name, root=root, transform=T)
         processed_dir = dataset.processed_dir
         split_idx = dataset.get_idx_split()
@@ -180,7 +182,6 @@ class trainer(object):
         else:
             raise NotImplementedError
         self.model.to(self.device)
-
         if len(list(self.model.parameters())) != 0:
             self.optimizer = torch.optim.Adam(
                 self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay
