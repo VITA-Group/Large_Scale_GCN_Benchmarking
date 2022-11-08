@@ -113,10 +113,6 @@ class trainer(object):
             self.model = GraphSAINT(
                 args, self.data, self.split_masks["train"], self.processed_dir
             )
-        elif self.type_model == "DST-GCN":
-            self.model = DSTGCN(
-                args, self.data, self.split_masks["train"], self.processed_dir
-            )
         elif self.type_model == "ClusterGCN":
             self.model = ClusterGCN(
                 args, self.data, self.split_masks["train"], self.processed_dir
@@ -146,14 +142,6 @@ class trainer(object):
             self.model = SAGN(
                 args, self.data, self.split_masks["train"], self.processed_dir
             )
-        elif self.type_model == "AdaGCN":
-            self.model = AdaGCN(
-                args,
-                self.data,
-                self.split_masks["train"],
-                self.processed_dir,
-                self.evaluator,
-            )
         elif self.type_model == "EnGCN":
             self.model = EnGCN(
                 args,
@@ -180,7 +168,7 @@ class trainer(object):
             else:
                 raise ValueError(f"Unknown GAMLP type: {args.GAMLP_type}")
         else:
-            raise NotImplementedError
+            raise NotImplementedError("please specify `type_model`")
         self.model.to(self.device)
         if len(list(self.model.parameters())) != 0:
             self.optimizer = torch.optim.Adam(
