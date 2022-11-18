@@ -1,7 +1,10 @@
 # Benchmark ScalableGraphLearning
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT) [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/a-comprehensive-study-on-large-scale-graph/node-property-prediction-on-ogbn-products)](https://paperswithcode.com/sota/node-property-prediction-on-ogbn-products?p=a-comprehensive-study-on-large-scale-graph) [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/a-comprehensive-study-on-large-scale-graph/node-classification-on-reddit)](https://paperswithcode.com/sota/node-classification-on-reddit?p=a-comprehensive-study-on-large-scale-graph)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/a-comprehensive-study-on-large-scale-graph/node-property-prediction-on-ogbn-products)](https://paperswithcode.com/sota/node-property-prediction-on-ogbn-products?p=a-comprehensive-study-on-large-scale-graph)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/a-comprehensive-study-on-large-scale-graph/node-classification-on-reddit)](https://paperswithcode.com/sota/node-classification-on-reddit?p=a-comprehensive-study-on-large-scale-graph)
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/a-comprehensive-study-on-large-scale-graph/node-classification-on-flickr)](https://paperswithcode.com/sota/node-classification-on-flickr?p=a-comprehensive-study-on-large-scale-graph)
+[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/a-comprehensive-study-on-large-scale-graph/node-property-prediction-on-ogbn-arxiv)](https://paperswithcode.com/sota/node-property-prediction-on-ogbn-arxiv?p=a-comprehensive-study-on-large-scale-graph)
 
 This is an authors' implementation of "[A Comprehensive Study on Large Scale Graph Training: Benchmarking and Rethinking](https://arxiv.org/pdf/2210.07494.pdf)" in Pytorch.
 
