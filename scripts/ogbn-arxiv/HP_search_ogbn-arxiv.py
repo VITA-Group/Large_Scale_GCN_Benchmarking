@@ -5,19 +5,18 @@ import sys
 
 hparams = dict(
     lr=[0.01, 0.001, 0.0001],
-    weight_decay=[0, 1e-5, 1e-4],
-    dropout=[0.1, 0.2, 0.5, 0.7],
-    epochs=[30, 50, 70],
-    dim_hidden=[128, 256, 512],
+    SLE_threshold=[0.5, 0.9],
+    dropout=[0.2, 0.5, 0.7],
+    num_heads=[1, 4, 8],
+    dim_hidden=[512, 1024],
     use_batch_norm=[True, False],
-    batch_size=[1000, 5000],
-    SLE_threshold=[0.5, 0.7, 0.9],
-    num_layers=[4, 5, 8],
+    batch_size=[10000],
+    num_layers=[4, 8],
 )
 
 gpu = int(sys.argv[1])
 model = "EnGCN"
-dataset = "Flickr"
+dataset = "ogbn-arxiv"
 
 def_config = dict(
     cuda_num=gpu,
@@ -27,11 +26,12 @@ def_config = dict(
     weight_decay=0.0,
     dropout=0.5,
     epochs=50,
-    dim_hidden=256,
+    dim_hidden=512,
     num_layers=4,
-    batch_size=5000,
-    use_batch_norm=False,
-    SLE_threshold=0.7,
+    use_batch_norm=True,
+    batch_size=10000,
+    SLE_threshold=0.9,
+    num_heads=1,
     N_exp=3,
 )
 
@@ -44,17 +44,7 @@ def make_command_line(exp_name, **kwargs):
 
 
 optim_config = {}
-keys = [
-    "lr",
-    "weight_decay",
-    "dropout",
-    "epochs",
-    "dim_hidden",
-    "use_batch_norm",
-    "batch_size",
-    "SLE_threshold",
-    "num_layers",
-]
+keys = hparams.keys()
 for k in keys:
     best_idx, best_acc = -1, -1
     for idx, p in enumerate(hparams[k]):

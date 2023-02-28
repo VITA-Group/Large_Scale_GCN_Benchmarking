@@ -1,10 +1,9 @@
 # Benchmark ScalableGraphLearning
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/a-comprehensive-study-on-large-scale-graph/node-property-prediction-on-ogbn-products)](https://paperswithcode.com/sota/node-property-prediction-on-ogbn-products?p=a-comprehensive-study-on-large-scale-graph)
+
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/a-comprehensive-study-on-large-scale-graph/node-classification-on-reddit)](https://paperswithcode.com/sota/node-classification-on-reddit?p=a-comprehensive-study-on-large-scale-graph)
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/a-comprehensive-study-on-large-scale-graph/node-classification-on-flickr)](https://paperswithcode.com/sota/node-classification-on-flickr?p=a-comprehensive-study-on-large-scale-graph)
-[![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/a-comprehensive-study-on-large-scale-graph/node-property-prediction-on-ogbn-arxiv)](https://paperswithcode.com/sota/node-property-prediction-on-ogbn-arxiv?p=a-comprehensive-study-on-large-scale-graph)
+
 
 This is an authors' implementation of "[A Comprehensive Study on Large Scale Graph Training: Benchmarking and Rethinking](https://arxiv.org/pdf/2210.07494.pdf)" in Pytorch.
 
@@ -123,8 +122,8 @@ For detailed configuration, please refer to `run_HP.py`.
 
 | EnGCN               | Flickr           | Reddit           | ogbn-arxiv       | ogbn-products    |
 | ------------------- | ---------------- | ---------------- | ---------------- | ---------------- |
-| Test Accuracy       | 56.4312 ± 0.2156 | 97.1407 ± 0.0338 | 77.9829 ± 0.0660 | 87.9851 ± 0.0395 |
-| Validation Accuracy | 55.8637 ± 0.1485 | 97.2746 ± 0.0326 | 78.7630 ± 0.0523 | 92.4757 ± 0.0342 |
+| Test Accuracy       | 56.2094 ± 0.0063 | 96.6573 ± 0.0673 | 71.5892 ± 0.9943 | 75.7893 ± 0.0828 |
+| Validation Accuracy | 55.7234 ± 0.0793 | 96.7060 ± 0.0326 | 73.1803 ± 0.0453 | 90.0440 ± 0.0943 |
 
 To reproduce the results, simply run
 

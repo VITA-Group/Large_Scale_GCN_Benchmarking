@@ -24,9 +24,7 @@ class MLP(torch.nn.Module):
             self.batch_norm_list.append(BatchNorm1d(args.dim_hidden))
         self.linear_list.append(Linear(args.dim_hidden, args.num_classes))
 
-        self.optimizer = torch.optim.Adam(
-            self.parameters(), lr=args.lr, weight_decay=args.weight_decay
-        )
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=args.lr, weight_decay=args.weight_decay)
         self.loss_op = torch.nn.NLLLoss()
 
     def forward(self, x):
@@ -99,9 +97,7 @@ class MLP_SLE(torch.nn.Module):
                 args.dropout,
                 normalization="batch" if args.use_batch_norm else "none",
             )
-        self.optimizer = torch.optim.Adam(
-            self.parameters(), lr=args.lr, weight_decay=args.weight_decay
-        )
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=args.lr, weight_decay=args.weight_decay)
         self.loss_op = torch.nn.NLLLoss()
 
     def forward(self, x, y, use_label_mlp):
@@ -111,12 +107,8 @@ class MLP_SLE(torch.nn.Module):
         return out
 
     def load(self):
-        self.base_mlp.load_state_dict(
-            torch.load(f"./.cache/{self.type_model}_{self.dataset}_base_mlp.pt")
-        )
-        self.label_mlp.load_state_dict(
-            torch.load(f"./.cache/{self.type_model}_{self.dataset}_label_mlp.pt")
-        )
+        self.base_mlp.load_state_dict(torch.load(f"./.cache/{self.type_model}_{self.dataset}_base_mlp.pt"))
+        self.label_mlp.load_state_dict(torch.load(f"./.cache/{self.type_model}_{self.dataset}_label_mlp.pt"))
 
     def train_net(self, train_loader, loss_op, device, use_label_mlp):
         self.train()
@@ -159,9 +151,7 @@ class MLP_SLE(torch.nn.Module):
 
 
 class Inner_MLP(torch.nn.Module):
-    def __init__(
-        self, in_dim, hidden_dim, out_dim, num_layers, dropout, use_batch_norm
-    ):
+    def __init__(self, in_dim, hidden_dim, out_dim, num_layers, dropout, use_batch_norm):
         super(Inner_MLP, self).__init__()
         self.linear_list = torch.nn.ModuleList()
         self.batch_norm_list = torch.nn.ModuleList()
@@ -190,9 +180,7 @@ class Inner_MLP(torch.nn.Module):
 class MultiHeadLinear(nn.Module):
     def __init__(self, in_feats, out_feats, n_heads, bias=True):
         super().__init__()
-        self.weight = nn.Parameter(
-            torch.FloatTensor(size=(n_heads, in_feats, out_feats))
-        )
+        self.weight = nn.Parameter(torch.FloatTensor(size=(n_heads, in_feats, out_feats)))
         if bias:
             self.bias = nn.Parameter(torch.FloatTensor(size=(n_heads, 1, out_feats)))
         else:
@@ -227,9 +215,7 @@ class MultiHeadLinear(nn.Module):
 
 # Modified multi-head BatchNorm1d layer
 class MultiHeadBatchNorm(nn.Module):
-    def __init__(
-        self, n_heads, in_feats, momentum=0.1, affine=True, device=None, dtype=None
-    ):
+    def __init__(self, n_heads, in_feats, momentum=0.1, affine=True, device=None, dtype=None):
         factory_kwargs = {"device": device, "dtype": dtype}
         super().__init__()
         assert in_feats % n_heads == 0
@@ -244,12 +230,8 @@ class MultiHeadBatchNorm(nn.Module):
             self.register_parameter("weight", None)
             self.register_parameter("bias", None)
 
-        self.register_buffer(
-            "running_mean", torch.zeros(size=(n_heads, in_feats // n_heads))
-        )
-        self.register_buffer(
-            "running_var", torch.ones(size=(n_heads, in_feats // n_heads))
-        )
+        self.register_buffer("running_mean", torch.zeros(size=(n_heads, in_feats // n_heads)))
+        self.register_buffer("running_var", torch.ones(size=(n_heads, in_feats // n_heads)))
         self.running_mean: Optional[Tensor]
         self.running_var: Optional[Tensor]
         self.reset_parameters()
@@ -276,12 +258,8 @@ class MultiHeadBatchNorm(nn.Module):
             mean = x.mean(dim=0, keepdim=True)
             var = x.var(dim=0, unbiased=False, keepdim=True)
             out = (x - mean) * torch.rsqrt(var + eps)
-            self.running_mean = (
-                1 - self._momentum
-            ) * self.running_mean + self._momentum * mean.detach()
-            self.running_var = (
-                1 - self._momentum
-            ) * self.running_var + self._momentum * var.detach()
+            self.running_mean = (1 - self._momentum) * self.running_mean + self._momentum * mean.detach()
+            self.running_var = (1 - self._momentum) * self.running_var + self._momentum * var.detach()
         else:
             out = (x - self.running_mean) * torch.rsqrt(self.running_var + eps)
         if self._affine:
@@ -310,6 +288,7 @@ class GroupMLP(nn.Module):
         self._n_layers = n_layers
 
         self.input_drop = nn.Dropout(input_drop)
+        self.norm_type = normalization
 
         if self._n_layers == 1:
             self.layers.append(MultiHeadLinear(in_feats, out_feats, n_heads))
@@ -342,9 +321,7 @@ class GroupMLP(nn.Module):
 
                 nn.init.kaiming_uniform_(layer.weight[head], a=math.sqrt(5))
                 if layer.bias is not None:
-                    fan_in, _ = nn.init._calculate_fan_in_and_fan_out(
-                        layer.weight[head]
-                    )
+                    fan_in, _ = nn.init._calculate_fan_in_and_fan_out(layer.weight[head])
                     bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
                     nn.init.uniform_(layer.bias[head], -bound, bound)
         self.reset_parameters()
@@ -358,8 +335,9 @@ class GroupMLP(nn.Module):
                 nn.init.xavier_uniform_(layer.weight[head], gain=gain)
                 if layer.bias is not None:
                     nn.init.zeros_(layer.bias[head])
-        for norm in self.norms:
-            norm.reset_parameters()
+        if self.norm_type != "none":
+            for norm in self.norms:
+                norm.reset_parameters()
             # for norm in self.norms:
             #     norm.moving_mean[head].zero_()
             #     norm.moving_var[head].fill_(1)
