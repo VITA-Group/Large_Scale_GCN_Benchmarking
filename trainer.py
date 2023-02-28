@@ -1,9 +1,9 @@
 import os
-from ogb.nodeproppred import Evaluator, PygNodePropPredDataset
 
 import numpy as np
 import torch
 import torch_geometric.datasets
+from ogb.nodeproppred import Evaluator, PygNodePropPredDataset
 from sklearn.metrics import f1_score
 from torch.profiler import ProfilerActivity, profile
 from torch_geometric.transforms import ToSparseTensor, ToUndirected
@@ -15,9 +15,7 @@ from Precomputing import *
 
 def load_data(dataset_name, to_sparse=True):
     if dataset_name in ["ogbn-products", "ogbn-papers100M", "ogbn-arxiv"]:
-        root = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), "..", "dataset", dataset_name
-        )
+        root = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "data", dataset_name)
         T = ToSparseTensor() if to_sparse else lambda x: x
         if to_sparse and dataset_name == "ogbn-arxiv":
             T = lambda x: ToSparseTensor()(ToUndirected()(x))
@@ -37,9 +35,7 @@ def load_data(dataset_name, to_sparse=True):
         y = data.y = data.y.squeeze()
 
     elif dataset_name in ["Reddit", "Flickr", "AmazonProducts", "Yelp"]:
-        path = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)), "..", "dataset", dataset_name
-        )
+        path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "..", "data", dataset_name)
         T = ToSparseTensor() if to_sparse else lambda x: x
         dataset_class = getattr(torch_geometric.datasets, dataset_name)
         dataset = dataset_class(path, transform=T)
@@ -69,7 +65,7 @@ def idx2mask(idx, N_nodes):
 
 
 class trainer(object):
-    def __init__(self, args):
+    def __init__(self, args, trial=None):
 
         self.dataset = args.dataset
         self.device = torch.device(f"cuda:{args.cuda_num}" if args.cuda else "cpu")
@@ -88,65 +84,41 @@ class trainer(object):
         else:
             self.loss_op = torch.nn.NLLLoss()
 
-        (
-            self.data,
-            self.x,
-            self.y,
-            self.split_masks,
-            self.evaluator,
-            self.processed_dir,
-        ) = load_data(args.dataset, args.tosparse)
+        if self.type_model == "EnGCN":
+            args.tosparse = True
+        self.data, self.x, self.y, self.split_masks, self.evaluator, self.processed_dir = load_data(
+            args.dataset, args.tosparse
+        )
 
         if self.type_model in ["GraphSAGE"]:
-            self.model = GraphSAGE(
-                args, self.data, self.split_masks["train"], self.processed_dir
-            )
+            self.model = GraphSAGE(args, self.data, self.split_masks["train"], self.processed_dir)
         elif self.type_model in ["FastGCN"]:
-            self.model = FastGCN(
-                args, self.data, self.split_masks["train"], self.processed_dir
-            )
+            self.model = FastGCN(args, self.data, self.split_masks["train"], self.processed_dir)
         elif self.type_model in ["LADIES"]:
-            self.model = LADIES(
-                args, self.data, self.split_masks["train"], self.processed_dir
-            )
+            self.model = LADIES(args, self.data, self.split_masks["train"], self.processed_dir)
         elif self.type_model == "GraphSAINT":
-            self.model = GraphSAINT(
-                args, self.data, self.split_masks["train"], self.processed_dir
-            )
+            self.model = GraphSAINT(args, self.data, self.split_masks["train"], self.processed_dir)
         elif self.type_model == "ClusterGCN":
-            self.model = ClusterGCN(
-                args, self.data, self.split_masks["train"], self.processed_dir
-            )
+            self.model = ClusterGCN(args, self.data, self.split_masks["train"], self.processed_dir)
         elif self.type_model == "LP_Adj":  # -wz-ini
-            self.model = LabelPropagation_Adj(
-                args, self.data, self.split_masks["train"]
-            )
+            self.model = LabelPropagation_Adj(args, self.data, self.split_masks["train"])
         elif self.type_model == "SIGN_MLP":
-            self.model = SIGN_MLP(
-                args, self.data, self.split_masks["train"], self.processed_dir
-            )
+            self.model = SIGN_MLP(args, self.data, self.split_masks["train"], self.processed_dir)
         elif self.type_model == "SIGN":
             if self.dataset == "Products":
-                self.model = SIGN_v2(
-                    args, self.data, self.split_masks["train"], self.processed_dir
-                )
+                self.model = SIGN_v2(args, self.data, self.split_masks["train"], self.processed_dir)
             else:
-                self.model = SIGN(
-                    args, self.data, self.split_masks["train"], self.processed_dir
-                )
+                self.model = SIGN(args, self.data, self.split_masks["train"], self.processed_dir)
         elif self.type_model == "SGC":
-            self.model = SGC(
-                args, self.data, self.split_masks["train"], self.processed_dir
-            )
+            self.model = SGC(args, self.data, self.split_masks["train"], self.processed_dir)
         elif self.type_model == "SAGN":
-            self.model = SAGN(
-                args, self.data, self.split_masks["train"], self.processed_dir
-            )
+            self.model = SAGN(args, self.data, self.split_masks["train"], self.processed_dir)
         elif self.type_model == "EnGCN":
             self.model = EnGCN(
                 args,
                 self.data,
                 self.evaluator,
+                trial=trial,
             )
         elif self.type_model == "GAMLP":
             if args.GAMLP_type == "R":
@@ -171,9 +143,7 @@ class trainer(object):
             raise NotImplementedError("please specify `type_model`")
         self.model.to(self.device)
         if len(list(self.model.parameters())) != 0:
-            self.optimizer = torch.optim.Adam(
-                self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay
-            )
+            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
         else:
             self.optimizer = None
 
@@ -189,9 +159,7 @@ class trainer(object):
 
     def test_cpu_mem(self, seed):
         input_dict = self.get_input_dict(0)
-        with profile(
-            activities=[ProfilerActivity.CPU], profile_memory=True, record_shapes=True
-        ) as prof:
+        with profile(activities=[ProfilerActivity.CPU], profile_memory=True, record_shapes=True) as prof:
             acc = self.model.train_and_test(input_dict)
 
         print(prof.key_averages().table(sort_by="self_cpu_memory_usage", row_limit=10))
@@ -225,11 +193,7 @@ class trainer(object):
         best_train = results[best_idx, 0]
         best_valid = results[best_idx, 1]
         best_test = results[best_idx, 2]
-        print(
-            f"Best train: {best_train:.2f}%, "
-            f"Best valid: {best_valid:.2f}% "
-            f"Best test: {best_test:.2f}%"
-        )
+        print(f"Best train: {best_train:.2f}%, " f"Best valid: {best_valid:.2f}% " f"Best test: {best_test:.2f}%")
 
         return best_train, best_valid, best_test
 
@@ -336,18 +300,9 @@ class trainer(object):
                 pred = out.argmax(dim=-1).to("cpu")
                 y_true = self.y
                 correct = pred.eq(y_true)
-                train_acc = (
-                    correct[self.split_masks["train"]].sum().item()
-                    / self.split_masks["train"].sum().item()
-                )
-                valid_acc = (
-                    correct[self.split_masks["valid"]].sum().item()
-                    / self.split_masks["valid"].sum().item()
-                )
-                test_acc = (
-                    correct[self.split_masks["test"]].sum().item()
-                    / self.split_masks["test"].sum().item()
-                )
+                train_acc = correct[self.split_masks["train"]].sum().item() / self.split_masks["train"].sum().item()
+                valid_acc = correct[self.split_masks["valid"]].sum().item() / self.split_masks["valid"].sum().item()
+                test_acc = correct[self.split_masks["test"]].sum().item() / self.split_masks["test"].sum().item()
 
             else:
                 pred = (out > 0).float().numpy()

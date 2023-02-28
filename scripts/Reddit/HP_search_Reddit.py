@@ -16,7 +16,7 @@ hparams = dict(
 )
 
 gpu = int(sys.argv[1])
-model = "AdaGCN_SLE"
+model = "EnGCN"
 dataset = "Reddit"
 
 def_config = dict(

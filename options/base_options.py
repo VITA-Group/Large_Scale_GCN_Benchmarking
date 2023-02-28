@@ -50,9 +50,7 @@ class BaseOptions:
         parser.add_argument("--exp_name", type=str, default="")
         parser.add_argument("--N_exp", type=int, default=20)
         parser.add_argument("--resume", action="store_true", default=False)
-        parser.add_argument(
-            "--cuda", type=bool, default=True, required=False, help="run in cuda mode"
-        )
+        parser.add_argument("--cuda", type=bool, default=True, required=False, help="run in cuda mode")
         parser.add_argument("--cuda_num", type=int, default=0, help="GPU number")
 
         parser.add_argument("--num_layers", type=int, default=2)
@@ -75,47 +73,34 @@ class BaseOptions:
             default=False,
             help="multi_label or single_label task",
         )
-        parser.add_argument(
-            "--dropout", type=float, default=0.2, help="input feature dropout"
-        )
+        parser.add_argument("--dropout", type=float, default=0.2, help="input feature dropout")
         parser.add_argument("--norm", type=str, default="None")
         parser.add_argument("--lr", type=float, default=0.001, help="learning rate")
-        parser.add_argument(
-            "--weight_decay", type=float, default=0.0, help="weight decay"
-        )  # 5e-4
+        parser.add_argument("--weight_decay", type=float, default=0.0, help="weight decay")  # 5e-4
         parser.add_argument("--dim_hidden", type=int, default=128)
         parser.add_argument(
             "--batch_size",
             type=int,
-            default=5000,
-            help="batch size depending on methods, "
-            "need to provide fair batch for different approaches",
+            default=20000,
+            help="batch size depending on methods, " "need to provide fair batch for different approaches",
         )
         # parameters for GraphSAINT
-        parser.add_argument(
-            "--walk_length", type=int, default=2, help="walk length of RW sampler"
-        )
+        parser.add_argument("--walk_length", type=int, default=2, help="walk length of RW sampler")
         parser.add_argument("--num_steps", type=int, default=5)
         parser.add_argument("--sample_coverage", type=int, default=0)
         parser.add_argument("--use_norm", type=bool, default=False)
         # parameters for ClusterGCN
         parser.add_argument("--num_parts", type=int, default=1500)
         # parameters for Greedy Gradient Sampling Selection
-        parser.add_argument(
-            "--dst_sample_coverage", type=float, default=0.1, help="dst sampling rate"
-        )
-        parser.add_argument(
-            "--dst_walk_length", type=int, default=2, help="random walk length"
-        )
+        parser.add_argument("--dst_sample_coverage", type=float, default=0.1, help="dst sampling rate")
+        parser.add_argument("--dst_walk_length", type=int, default=2, help="random walk length")
         parser.add_argument(
             "--dst_update_rate",
             type=float,
             default=0.8,
             help="initialized dst update rate",
         )
-        parser.add_argument(
-            "--dst_update_interval", type=int, default=1, help="dst update interval"
-        )
+        parser.add_argument("--dst_update_interval", type=int, default=1, help="dst update interval")
         parser.add_argument("--dst_T_end", type=int, default=250)
         parser.add_argument(
             "--dst_update_decay",
@@ -123,9 +108,7 @@ class BaseOptions:
             default=True,
             help="whether to decay update rate",
         )
-        parser.add_argument(
-            "--dst_update_scheme", type=str, default="node3", help="update schemes"
-        )
+        parser.add_argument("--dst_update_scheme", type=str, default="node3", help="update schemes")
         parser.add_argument(
             "--dst_grads_scheme",
             type=int,
@@ -134,9 +117,7 @@ class BaseOptions:
         )
 
         parser.add_argument("--LP__no_prep", type=int, default=0)  # no change!!!
-        parser.add_argument(
-            "--LP__pre_num_propagations", type=int, default=10
-        )  # no change!!!
+        parser.add_argument("--LP__pre_num_propagations", type=int, default=10)  # no change!!!
         parser.add_argument("--LP__A1", type=str, default="DA")  # ['DA' 'AD' 'DAD']
         parser.add_argument("--LP__A2", type=str, default="AD")  # ['DA' 'AD' 'DAD']
         parser.add_argument("--LP__prop_fn", type=int, default=1)  # [0,1]
@@ -162,9 +143,7 @@ class BaseOptions:
             choices=["SGC", "PPR", "NPPR", "Random", "WS", "Null"],
         )  # [0,  1,2,3]
         # hyperparameters for gradient evaluation
-        parser.add_argument(
-            "--type_run", type=str, default="filtered", choices=["complete", "filtered"]
-        )
+        parser.add_argument("--type_run", type=str, default="filtered", choices=["complete", "filtered"])
         parser.add_argument("--filter_rate", type=float, default=0.2)
 
         args = parser.parse_args()
@@ -232,9 +211,7 @@ def set_labprop_configs(args):
         args.preStep.num_propagations = 10
         # args.preStep.p = 1
         # args.preStep.alpha = 0.5
-        args.preStep.pre_methods = (
-            "diffusion+spectral"  # options: sgc , diffusion , spectral , community
-        )
+        args.preStep.pre_methods = "diffusion+spectral"  # options: sgc , diffusion , spectral , community
         args.midStep.model = ["mlp", "linear", "plain", "gat"][0]
         args.midStep.hidden_channels = 256
         args.midStep.num_layers = 3
@@ -252,9 +229,7 @@ def set_labprop_configs(args):
         args.lpStep.num_propagations = 50
         args.lpStep.num_propagations1 = 50
         args.lpStep.num_propagations2 = 50
-        args.lpStep.lp_force_on_cpu = (
-            True  # fixed due to hard coding in C&S. please never change this.
-        )
+        args.lpStep.lp_force_on_cpu = True  # fixed due to hard coding in C&S. please never change this.
         args.lpStep.no_prep = 0
         # if the above 'lpStep.no_prep' is set to 1, what will happen:
         # there will be no preprocessing (self.preStep);
@@ -285,9 +260,7 @@ def set_labprop_configs(args):
         # alpha2
         # num_layers
         args.preStep.num_propagations = args.LP__pre_num_propagations
-        args.preStep.pre_methods = (
-            "diffusion+spectral"  # options: sgc , diffusion , spectral , community
-        )
+        args.preStep.pre_methods = "diffusion+spectral"  # options: sgc , diffusion , spectral , community
         if args.LP__num_layers == 0:
             args.midStep.model = ["mlp", "linear", "plain", "gat"][1]
         else:
@@ -308,9 +281,7 @@ def set_labprop_configs(args):
         args.lpStep.num_propagations = 50
         args.lpStep.num_propagations1 = args.LP__num_propagations1
         args.lpStep.num_propagations2 = args.LP__num_propagations2
-        args.lpStep.lp_force_on_cpu = (
-            True  # fixed due to hard coding in C&S. please never change this.
-        )
+        args.lpStep.lp_force_on_cpu = True  # fixed due to hard coding in C&S. please never change this.
         args.lpStep.no_prep = args.LP__no_prep
 
 
