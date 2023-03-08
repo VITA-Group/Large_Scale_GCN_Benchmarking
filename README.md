@@ -1,9 +1,7 @@
 # Benchmark ScalableGraphLearning
 
-
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/a-comprehensive-study-on-large-scale-graph/node-classification-on-reddit)](https://paperswithcode.com/sota/node-classification-on-reddit?p=a-comprehensive-study-on-large-scale-graph)
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/a-comprehensive-study-on-large-scale-graph/node-classification-on-flickr)](https://paperswithcode.com/sota/node-classification-on-flickr?p=a-comprehensive-study-on-large-scale-graph)
-
 
 This is an authors' implementation of "[A Comprehensive Study on Large Scale Graph Training: Benchmarking and Rethinking](https://arxiv.org/pdf/2210.07494.pdf)" in Pytorch.
 
@@ -119,6 +117,8 @@ python run_HP.py $cuda_num $type_model $dataset
 For detailed configuration, please refer to `run_HP.py`.
 
 ## Reproduce results of EnGCN
+
+**Updates**: As introduced in issue [label leakage](https://github.com/VITA-Group/Large_Scale_GCN_Benchmarking/issues/5#issue-1597789310), out reported results of EnGCN is not correct, we retested it on the four datasets and update the code in this [PR](https://github.com/VITA-Group/Large_Scale_GCN_Benchmarking/pull/6#issue-1602338638). one is required to use the updated code for correct reproduction. Accordingly, we update the [arxiv](https://arxiv.org/pdf/2210.07494.pdf) as well.
 
 | EnGCN               | Flickr           | Reddit           | ogbn-arxiv       | ogbn-products    |
 | ------------------- | ---------------- | ---------------- | ---------------- | ---------------- |
