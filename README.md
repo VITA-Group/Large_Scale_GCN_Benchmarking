@@ -143,10 +143,10 @@ bash scripts/$dataset/EnGCN.sh
 If you find this repo useful, please star the repo and cite:
 
 ```bibtex
-@article{duan2022comprehensive,
+@inproceedings{duancomprehensive,
   title={A Comprehensive Study on Large-Scale Graph Training: Benchmarking and Rethinking},
   author={Duan, Keyu and Liu, Zirui and Wang, Peihao and Zheng, Wenqing and Zhou, Kaixiong and Chen, Tianlong and Hu, Xia and Wang, Zhangyang},
-  journal={arXiv preprint arXiv:2210.07494},
-  year={2022}
+  booktitle={Thirty-sixth Conference on Neural Information Processing Systems Datasets and Benchmarks Track},
+  year=2022,
 }
 ```
